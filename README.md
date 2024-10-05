@@ -9,5 +9,6 @@ This script aims to guide you to the 'best' macOS upgrade method, ranging from '
 Note:
 1. Will this script download and install macOS? **No.**
 2. Will this script *determine what's possible and let you know?* **Yes.**
+3. Is this still a work-in-progress? *Yes!*
 
-[MUC v0.1](https://github.com/stumcd/muc/blob/25dcc8e15e5e6ace575dd85bad9b6e507322aba4/macupdatechaperone-0.1.sh)
+[MUC v0.1](https://github.com/stumcd/muc/blob/25dcc8e15e5e6ace575dd85bad9b6e507322aba4/macupgradechaperone-0.1.sh)
