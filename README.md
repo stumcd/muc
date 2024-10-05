@@ -11,4 +11,4 @@ Note:
 2. Will this script *determine what's possible and let you know?* **Yes.**
 3. Is this still a work-in-progress? *Yes!*
 
-[MUC v0.1](https://github.com/stumcd/muc/blob/25dcc8e15e5e6ace575dd85bad9b6e507322aba4/macupgradechaperone-0.1.sh)
+[MUC v0.1](https://github.com/stumcd/muc/blob/ad0352e860ae824362f070b1d54f27b91b1f2810/macupgradechaperone-0.1.sh)
