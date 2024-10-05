@@ -59,7 +59,7 @@ else
 fi
 
 #### Check if Bootstrap Token is escrowed
-if profiles status -type bootstraptoken | grep -q "XBootstrap Token escrowed to server: YES"; then
+if profiles status -type bootstraptoken | grep -q "Bootstrap Token escrowed to server: YES"; then
     echo "--- ✅ Bootstrap Token: Escrowed" | tee -a "$log_file"
 else
     echo "--- ❌ Bootstrap Token NOT Escrowed" | tee -a "$log_file" | tee -a "$error_log"
