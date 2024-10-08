@@ -101,15 +101,65 @@ echo "- Serial: $hardware_serial" | tee -a "$log_file"
 
 #### Check compatibility
 # Define an array of compatible models
-compatible_models=("MacBookAir8,1" "MacBookAir9,1" "MacBookAir10,1" "MacBookAir14,2" "MacBookAir14,15"
-                   "MacBookPro15,1" "MacBookPro15,2" "MacBookPro15,3" "MacBookPro15,4"
-                   "MacBookPro16,1" "MacBookPro16,2" "MacBookPro16,3" "MacBookPro17,1"
-                   "MacBookPro18,1" "MacBookPro18,2" "MacBookPro18,3" "MacBookPro18,4"
-                   "Macmini8,1" "Macmini9,1" "Mac14,3" "Mac14,12"
-                   "iMac19,1" "iMac19,2" "iMac20,1" "iMac20,2" "iMac21,1" "iMac21,2"
-                   "iMacPro1,1"
-                   "MacPro7,1" "Mac14,8"
-                   "MacStudio1,1" "MacStudio1,2" "Mac13,1" "Mac13,2" "Mac14,13" "Mac14,14")
+compatible_models=(
+  "MacBookAir8,1"  # MacBook Air (2018)
+  "MacBookAir9,1"  # MacBook Air (2019)
+  "MacBookAir10,1" # MacBook Air (M1, 2020)
+  "MacBookAir14,2" # MacBook Air (M2, 2022)
+  "MacBookAir14,15" # MacBook Air (M2, 2022, 15-inch)
+
+  "MacBookPro15,1" # MacBook Pro (2018, 13-inch)
+  "MacBookPro15,2" # MacBook Pro (2018, 15-inch)
+  "MacBookPro15,3" # MacBook Pro (2019, 13-inch)
+  "MacBookPro15,4" # MacBook Pro (2019, 15-inch)
+  "MacBookPro16,1" # MacBook Pro (2020, 13-inch)
+  "MacBookPro16,2" # MacBook Pro (2020, 13-inch)
+  "MacBookPro16,3" # MacBook Pro (2020, 16-inch)
+  "MacBookPro17,1" # MacBook Pro (M1, 2020, 13-inch)
+  "MacBookPro18,1" # MacBook Pro (M1 Pro, 2021, 14-inch)
+  "MacBookPro18,2" # MacBook Pro (M1 Pro, 2021, 16-inch)
+  "MacBookPro18,3" # MacBook Pro (M1 Max, 2021, 14-inch)
+  "MacBookPro18,4" # MacBook Pro (M1 Max, 2021, 16-inch)
+  "MacBookPro15,6" # MacBook Pro (2019, 16-inch)
+
+  "Macmini8,1"     # Mac mini (2018)
+  "Macmini9,1"     # Mac mini (M1, 2020)
+
+  "Mac14,3"        # Mac Studio (M1 Max, 2022)
+  "Mac14,12"       # Mac Studio (M1 Ultra, 2022)
+
+  "iMac19,1"       # iMac (2019, 21.5-inch)
+  "iMac19,2"       # iMac (2019, 27-inch)
+  "iMac20,1"       # iMac (2020, 21.5-inch)
+  "iMac20,2"       # iMac (2020, 27-inch)
+  "iMac21,1"       # iMac (M1, 2021, 24-inch)
+  "iMac21,2"       # iMac (M1, 2021, 24-inch)
+
+  "iMacPro1,1"     # iMac Pro (2017)
+
+  "MacPro7,1"      # Mac Pro (2019)
+  "Mac14,8"        # Mac Pro (2022)
+
+  "MacStudio1,1"   # Mac Studio (2022)
+  "MacStudio1,2"   # Mac Studio (2022)
+  "Mac13,1"        # Mac Studio (M1 Max, 2022)
+  "Mac13,2"        # Mac Studio (M1 Ultra, 2022)
+  "Mac14,13"       # Mac Studio (M2 Max, 2023)
+  "Mac14,14"       # Mac Studio (M2 Ultra, 2023)
+  "Mac14,7"        # Mac Studio (M2, 2023)
+  "Mac14,9"        # Mac Studio (M2, 2023)
+  
+  "Mac14,5"        # MacBook Air (M2, 2022)
+  "Mac14,10"       # MacBook Pro (M2, 2023)
+  "Mac14,6"        # MacBook Pro (M2 Pro, 2023)
+  "Mac15,3"        # MacBook Pro (M2 Pro, 2023, 14-inch)
+  "Mac15,6"        # MacBook Pro (M2 Pro, 2023, 16-inch)
+  "Mac15,10"       # MacBook Pro (M2 Max, 2023, 14-inch)
+  "Mac15,8"        # MacBook Pro (M2 Max, 2023, 16-inch)
+  "Mac15,7"        # MacBook Pro (M2, 2023)
+  "Mac15,11"       # MacBook Pro (M2, 2023)
+  "Mac15,9"        # MacBook Pro (M2, 2023)
+)
 
 # Check if the hardware model is in the list of compatible models
 if [[ " ${compatible_models[@]} " =~ " $hardware_modelidentifier " ]]; then
