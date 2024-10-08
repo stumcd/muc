@@ -23,7 +23,7 @@ timestamp=$(date +"%Y%m%d_%H%M%S")
 
 
 #### Define the directory and log file path
-log_dir="/usr/local/borkcorp"
+log_dir="/usr/local/muc"
 log_file="$log_dir/macupgradechaperone_${timestamp}.log"
 error_log="$log_dir/macupgradechaperone.error_${timestamp}.log"
 
@@ -101,14 +101,15 @@ echo "- Serial: $hardware_serial" | tee -a "$log_file"
 
 #### Check compatibility
 # Define an array of compatible models
-compatible_models=("MacBookAir8,1" "MacBookAir9,1" "MacBookAir10,1" "MacBookAir10,2"
-                   "MacBookPro15,1" "MacBookPro15,2" "MacBookPro15,3" "MacBookPro16,1" "MacBookPro16,2" 
-                   "MacBookPro16,3" "MacBookPro17,1" "MacBookPro18,1" "MacBookPro18,2" "MacBookPro18,3" "MacBookPro18,4"
-                   "Macmini8,1" "Macmini9,1"
+compatible_models=("MacBookAir8,1" "MacBookAir9,1" "MacBookAir10,1" "MacBookAir14,2" "MacBookAir14,15"
+                   "MacBookPro15,1" "MacBookPro15,2" "MacBookPro15,3" "MacBookPro15,4"
+                   "MacBookPro16,1" "MacBookPro16,2" "MacBookPro16,3" "MacBookPro17,1"
+                   "MacBookPro18,1" "MacBookPro18,2" "MacBookPro18,3" "MacBookPro18,4"
+                   "Macmini8,1" "Macmini9,1" "Mac14,3" "Mac14,12"
                    "iMac19,1" "iMac19,2" "iMac20,1" "iMac20,2" "iMac21,1" "iMac21,2"
                    "iMacPro1,1"
-                   "MacPro7,1"
-                   "MacStudio1,1" "MacStudio1,2")
+                   "MacPro7,1" "Mac14,8"
+                   "MacStudio1,1" "MacStudio1,2" "Mac13,1" "Mac13,2" "Mac14,13" "Mac14,14")
 
 # Check if the hardware model is in the list of compatible models
 if [[ " ${compatible_models[@]} " =~ " $hardware_modelidentifier " ]]; then
@@ -117,7 +118,7 @@ else
     echo "NOT compatible with macOS Sonoma. ❌" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-if [ "$(uname -m)" = "Xarm64" ]; then
+if [ "$(uname -m)" = "arm64" ]; then
   echo "--- ✅ Architecture: Apple silicon" | tee -a "$log_file"
 else
   echo "--- ⚠️ A️rchitecture: Intel️" | tee -a "$log_file" | tee -a "$error_log"
