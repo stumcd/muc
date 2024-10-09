@@ -5,8 +5,8 @@
 # Author: Stu McDonald
 # Created: 14-09-24
 # -----------------------------------------------------
-# Version: 0.1
-# Date: 04-10-24
+# Version: 0.5
+# Date: 09-10-24
 # -----------------------------------------------------
 
 
@@ -171,7 +171,7 @@ fi
 if [ "$(uname -m)" = "arm64" ]; then
   echo "--- ✅ Architecture: Apple silicon" | tee -a "$log_file"
 else
-  echo "--- ⚠️ A️rchitecture: Intel️" | tee -a "$log_file" | tee -a "$error_log"
+  echo "--- ⚠️ A️rchitecture: Intel️" | tee -a "$log_file"
 fi
 
 #### Check free space
@@ -202,15 +202,23 @@ echo "Checking any issues we encountered..." | tee -a "$log_file"
 
 # Check if the error_log file is non-empty
 if [ -s "$error_log" ]; then
-    # Read the contents of the error_log file
-    error_messages=$(cat "$error_log")
+
+# Read the contents of the error_log file
+	error_messages=$(cat "$error_log")
  
-    # If there are errors, use osascript to display a dialog box with the error messages
-        osascript -e "tell application \"System Events\" to display dialog \"The following issues were encountered:\n\n$error_messages\" buttons {\"OK\"} default button \"OK\" with title \"Script Error\""
+# Display dialog: bad news - Nuke and Pave
+	nukeandpave="Unfortunately, the best option for this Mac is to erase and reinstall macOS, using either Internet Recovery, Bootable USB, or Apple Configurator 2. "
+	echo "$nukeandpave" | tee -a "$log_file"
+    osascript -e "tell application \"System Events\" to display dialog \"$nukeandpave\n\nIssues detected:\n$error_messages\" buttons {\"OK\"} default button \"OK\" with title \"Time to nuke and pave 🎉\""
+else
+
+# Display dialog: Best case scenario - MDM
+    osascript -e "tell application \"System Events\" to display dialog \"Congratulations, you can upgrade this Mac using an MDM command. \" buttons {\"OK\"} default button \"OK\" with title \"No issues detected 🎉\""
 fi
 
+
 #### End
-echo "Good luck on your upgrade journey! 👋" | tee -a "$log_file"
+echo "Safe travels on your upgrade journey! 👋" | tee -a "$log_file"
 echo "Finished: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file"
 echo "=========================================" | tee -a "$log_file"
 exit 0
