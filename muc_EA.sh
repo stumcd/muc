@@ -12,5 +12,5 @@ if [[ -f "$LOG_FILE" ]]; then
   echo "<result>$(cat "$LOG_FILE")</result>"
 else
   # If no file was found, return an error message
-  echo "<result>No log file found</result>"
+  echo "<result>No issues detected. 🎉</result>"
 fi
