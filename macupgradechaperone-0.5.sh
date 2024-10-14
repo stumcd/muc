@@ -9,18 +9,15 @@
 # Date: 09-10-24
 # -----------------------------------------------------
 
-
 #### Check if the script is running as sudo
 if [ "$(id -u)" -ne 0 ]; then
     echo "Sorry, this script must be run as root. Sudo bang bang!" >&2
     exit 1
 fi
 
-
 # Get the current timestamp (format: YYYYMMDD_HHMMSS)
 timestamp=$(date +"%Y%m%d_%H%M%S")
 #echo "$timestamp" | tee -a "$log_file"
-
 
 #### Define the directory and log file path
 log_dir="/usr/local/muc"
@@ -39,10 +36,8 @@ fi
 #exec 2>"$error_log"
 
 #### Log start time
-echo "========= 🖥️🤵 Mac Upgrade Chaperone v0.1 🤵🖥️ =========" | tee -a "$log_file"
-echo "----- Guiding your upgrade to: macOS Sonoma" | tee -a "$log_file"
-
-
+echo "========= 🖥️🤵 Mac Upgrade Chaperone 🤵🖥️ =========" | tee -a "$log_file"
+echo "----- Guiding your upgrade to... macOS Sonoma" | tee -a "$log_file"
 
 
 echo "Started: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file" 
@@ -58,7 +53,11 @@ else
   echo "--- ❌ No MDM Profile. This device is NOT managed." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-#### Check if Bootstrap Token is escrowed
+### insert here: 
+### check expiry on MDM cert
+### check connection to JSS
+
+#### Check Bootstrap Token is escrowed
 if profiles status -type bootstraptoken | grep -q "Bootstrap Token escrowed to server: YES"; then
     echo "--- ✅ Bootstrap Token: Escrowed" | tee -a "$log_file"
 else
@@ -83,7 +82,7 @@ if [ -n "$recovery_volume_check" ]; then
 else
   echo "--- ⚠️ Could not find a 'Recovery' volume. " | tee -a "$log_file" | tee -a "$error_log"
 fi
-
+ß
 
 echo "🖥  Checking hardware and OS..." | tee -a "$log_file"
 
