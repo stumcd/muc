@@ -5,66 +5,117 @@
 # Author: Stu McDonald
 # Created: 14-09-24
 # -----------------------------------------------------
-# Version: 0.5
-# Date: 09-10-24
+# Version: 0.51
+# Date: 05-12-24
 # -----------------------------------------------------
 
-#### Check if the script is running as sudo
+#### Pre-Run Setup & Checks
+
+## Check if the script is running as sudo
 if [ "$(id -u)" -ne 0 ]; then
     echo "Sorry, this script must be run as root. Sudo bang bang!" >&2
     exit 1
 fi
 
+## Set the target version
+# Jamf Pro script parameters
+targetOS=$4
+
+# Hardcoded value for testing
+# targetOS="macOS Sonoma"
+
 # Get the current timestamp (format: YYYYMMDD_HHMMSS)
 timestamp=$(date +"%Y%m%d_%H%M%S")
 #echo "$timestamp" | tee -a "$log_file"
 
-#### Define the directory and log file path
+## Define the directory for the log file and error log
 log_dir="/usr/local/muc"
-log_file="$log_dir/macupgradechaperone_${timestamp}.log"
-error_log="$log_dir/macupgradechaperone.error_${timestamp}.log"
 
-#### Create the directory if it doesn't exist
+## Create the directory if it doesn't exist
 if [ ! -d "$log_dir" ]; then
   echo "The directory $log_dir does not exist. Creating it now..."
   sudo mkdir -p "$log_dir"
   sudo chown $(whoami) "$log_dir"  # Ensure the current user has ownership
 fi
 
-# Redirect stdout to the log file and stderr to the error_log file
-#exec 1>"$log_file"
-#exec 2>"$error_log"
+## Write to a new log file for each run, appended with timestamp
+log_file="$log_dir/macupgradechaperone_${timestamp}.log"
 
-#### Log start time
-echo "========= 🖥️🤵 Mac Upgrade Chaperone 🤵🖥️ =========" | tee -a "$log_file"
-echo "----- Guiding your upgrade to... macOS Sonoma" | tee -a "$log_file"
+## Write to a new error log file for each run, appended with timestamp
+error_log="$log_dir/macupgradechaperone.error_${timestamp}.log"
+
+#### Step 1 - let's check stuff
+
+## Log start time
+# echo "Target macOS Version is: $targetOS"
+echo "========= 🖥️ 🤵 Mac Upgrade Chaperone 🤵 🖥️ =========" | tee -a "$log_file"
+if [[ -n "$targetOS" ]]; then
+	echo "== Jamf Pro Script parameter detected! macOS target version: $targetOS"
+    echo "🎯 macOS Version: $targetOS (via Jamf Pro policy parameters 🎉)"    
+else
+    echo "== ⚠️  macOS target version has not specified, defaulting to latest major version"
+    targetOS="macOS Sonoma"
+    echo "🎯 macOS target version default: $targetOS"
+fi
+echo "-------------------------" | tee -a "$log_file"
+echo "----- Guiding your journey to... ✨ $targetOS ✨" | tee -a "$log_file"
 
 
 echo "Started: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file" 
 echo "-------------------------" | tee -a "$log_file"
 echo "⚙️  Checking MDM profile and Bootstrap Token..." | tee -a "$log_file"
 
-#### Check if an MDM profile is installed
-mdm_profile=$(profiles status -type enrollment 2>&1)
+#### MDM checks
+# Check if there's an MDM profile installed
 
+mdm_profile=$(profiles status -type enrollment 2>&1)
 if [[ "$mdm_profile" == *"MDM enrollment: Yes"* ]]; then
   echo "--- ✅ MDM Profile: Installed"  | tee -a "$log_file"
+  mdmUrl=$(profiles -e | grep "ConfigurationURL" | awk '{print $3}' | tr -d ';"' | sed 's|/cloudenroll$||')
 else
-  echo "--- ❌ No MDM Profile. This device is NOT managed." | tee -a "$log_file" | tee -a "$error_log"
+  echo "--- ❌ MDM Profile not present. This device is NOT managed." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-### insert here: 
-### check expiry on MDM cert
-### check connection to JSS
+# Check if MDM profile is removable 
+mdm_profile_removeable=$(profiles -e | grep "IsMDMUnremovable" | awk '{print $3}' | tr -d ';')
+if [[ ${mdm_profile_removeable} = '1' ]]; then
+	echo "--- ✅ MDM profile is NOT removable." | tee -a "$log_file"
+else
+	if [[ ${mdm_profile_removeable} = '0' ]]; then
+		echo "--- ⚠️  MDM Profile is removable." | tee -a "$log_file"
+	fi
+fi
 
-#### Check Bootstrap Token is escrowed
+### add:
+### check expiry on MDM cert
+
+
+### Check connection to JSS
+echo "--- Checking connection to MDM Server..." | tee -a "$log_file" 
+
+# this needs to fail gracefully if there's no connectivity
+# using cURL is probably better than using the jamf binary w checkJSSConnection... 
+
+mdmServerStatus=$(jamf checkJSSConnection)
+
+# Check if the connection was successful
+  if echo "$mdmServerStatus" | grep -q "The JSS is available"; then
+    echo "--- ✅ Jamf Pro Server is reachable. URL: $mdmUrl"
+  else
+    echo "❌ Unable to connect to the Jamf Pro Server."
+    echo "Details: $mdmServerStatus"
+  fi
+
+# Check if Bootstrap Token has been escrowed
 if profiles status -type bootstraptoken | grep -q "Bootstrap Token escrowed to server: YES"; then
     echo "--- ✅ Bootstrap Token: Escrowed" | tee -a "$log_file"
 else
     echo "--- ❌ Bootstrap Token NOT Escrowed" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-echo "💾️ Checking disk volumes..." | tee -a "$log_file"
+#### Disk checks
+
+echo "🧐 Checking for unusual disk volumes..." | tee -a "$log_file"
 
 # Check for "Macintosh HD"
 volume_check=$(diskutil list | grep "Macintosh HD")
@@ -75,30 +126,45 @@ else
   echo "--- ⚠️ There is no volume present named 'Macintosh HD'." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-# Check for Recovery
+# Check for Recovery volume
 recovery_volume_check=$(diskutil list | grep "Recovery")
 if [ -n "$recovery_volume_check" ]; then
   echo "--- ✅ Found a volume named 'Recovery'." | tee -a "$log_file"
 else
   echo "--- ⚠️ Could not find a 'Recovery' volume. " | tee -a "$log_file" | tee -a "$error_log"
 fi
-ß
 
-echo "🖥  Checking hardware and OS..." | tee -a "$log_file"
+echo "📏 Checking available space..." | tee -a "$log_file"
 
-#### Get hardware info
+# Check available space
+available_space=$(df / | tail -1 | awk '{print $4}')
+
+# Convert available space from 1K blocks to GB (divide by 1,048,576)
+available_space_gb=$((available_space / 1048576))
+
+if [ "$available_space_gb" -ge 20 ]; then
+  echo "--- ✅ There is enough free space (20 GB required, $available_space_gb GB available)." | tee -a "$log_file"
+else
+  echo "--- ❌ There is not enough free space on disk ($available_space_gb GB available, 20 GB required)." | tee -a "$log_file" | tee -a "$error_log"
+fi
+
+#### Retrieve and display hardware info
+
+echo "🖥  Mac hardware:" | tee -a "$log_file"
+
 hardware_name=$(system_profiler SPHardwareDataType | awk -F ": " '/Model Name/ {print $2}')
 hardware_modelidentifier=$(system_profiler SPHardwareDataType | awk '/Model Identifier/ {print $3}')
 hardware_chip=$(system_profiler SPHardwareDataType | awk -F ": " '/Chip/ {print $2}')
 hardware_serial=$(system_profiler SPHardwareDataType | awk -F ": " '/Serial Number/ {print $2}')
 
-#### Display hardware info
+# Display hardware info
 echo "- Model: $hardware_name" | tee -a "$log_file"
 echo "- Model Identifier: $hardware_modelidentifier" | tee -a "$log_file"
 echo "- Chip: $hardware_chip" | tee -a "$log_file"
 echo "- Serial: $hardware_serial" | tee -a "$log_file"
 
 #### Check compatibility
+
 # Define an array of compatible models
 compatible_models=(
   "MacBookAir8,1"  # MacBook Air (2018)
@@ -162,9 +228,9 @@ compatible_models=(
 
 # Check if the hardware model is in the list of compatible models
 if [[ " ${compatible_models[@]} " =~ " $hardware_modelidentifier " ]]; then
-    echo "--- ✅ Compatible with macOS Sonoma" | tee -a "$log_file"
+    echo "--- ✅ Compatible with $targetOS" | tee -a "$log_file"
 else
-    echo "NOT compatible with macOS Sonoma. ❌" | tee -a "$log_file" | tee -a "$error_log"
+    echo "NOT compatible with $targetOS. ❌" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
 if [ "$(uname -m)" = "arm64" ]; then
@@ -173,37 +239,31 @@ else
   echo "--- ⚠️ A️rchitecture: Intel️" | tee -a "$log_file"
 fi
 
-#### Check free space
-available_space=$(df / | tail -1 | awk '{print $4}')
+echo "🖥  Checking existing macOS installation" | tee -a "$log_file"
 
-#### Convert available space from 1K blocks to GB (divide by 1,048,576)
-available_space_gb=$((available_space / 1048576))
-
-if [ "$available_space_gb" -ge 20 ]; then
-  echo "--- ✅ There is enough free space (20 GB required, $available_space_gb GB available)." | tee -a "$log_file"
-else
-  echo "--- ❌ There is not enough free space on disk ($available_space_gb GB available, 20 GB required)." | tee -a "$log_file" | tee -a "$error_log"
-fi
-
-#### Check macOS version
 macos_version=$(sw_vers -productVersion)
 major_version=$(echo "$macos_version" | cut -d '.' -f 1)
 
+echo "--- Installed macOS version: $macos_version." | tee -a "$log_file"
+
 if [ "$major_version" -ge 11 ]; then
-  echo "--- ✅ Installed macOS version: $macos_version." | tee -a "$log_file"
+  echo "--- ✅ $macos_version can upgrade to $targetOS" | tee -a "$log_file"
 else
-  echo "--- ❌ Installed macOS version: $macos_version (which is older than Big Sur)." | tee -a "$log_file" | tee -a "$error_log"
+  echo "--- ❌ Installed macOS version ($macos_version) can't upgrade to $targetOS'." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-echo "-------------------------" | tee -a "$log_file"
+#### Step 2 - let's determine the best pathway forward
+#### Check the error log and based on what we found, display a dialog recommending an upgrade method 
 
-echo "Checking any issues we encountered..." | tee -a "$log_file"
+echo "System checks complete." | tee -a "$log_file"
+echo "-------------------------" | tee -a "$log_file"
+echo "Calculating the best upgrade path & reticulating splines.." | tee -a "$log_file"
 
 # Check if the error_log file is non-empty
 if [ -s "$error_log" ]; then
 
 # Read the contents of the error_log file
-	error_messages=$(cat "$error_log")
+	error_messages=$(cat "$error_log" | sed 's/"/\\"/g')  # Escape double quotes
  
 # Display dialog: bad news - Nuke and Pave
 	nukeandpave="Unfortunately, the best option for this Mac is to erase and reinstall macOS, using either Internet Recovery, Bootable USB, or Apple Configurator 2. "
@@ -212,12 +272,14 @@ if [ -s "$error_log" ]; then
 else
 
 # Display dialog: Best case scenario - MDM
-    osascript -e "tell application \"System Events\" to display dialog \"Congratulations, you can upgrade this Mac using an MDM command. \" buttons {\"OK\"} default button \"OK\" with title \"No issues detected 🎉\""
+    success_message="Congratulations, you can upgrade this Mac using an MDM command."
+    echo "$success_message" | tee -a "$log_file"
+    osascript -e "tell application \"System Events\" to display dialog \"${success_message}\" buttons {\"OK\"} default button \"OK\" with title \"No issues detected 🎉\""
 fi
 
 
 #### End
-echo "Safe travels on your upgrade journey! 👋" | tee -a "$log_file"
+echo "Good luck on your upgrade journey! Bon voyage! 👋" | tee -a "$log_file"
 echo "Finished: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file"
 echo "=========================================" | tee -a "$log_file"
 exit 0
