@@ -11,7 +11,7 @@ Note:
 2. Will this script *determine what's possible and let you know?* **Yes.**
 3. Is this still a work-in-progress? *Yes!*
 
-[MUC v0.5](https://raw.githubusercontent.com/stumcd/muc/refs/heads/main/macupgradechaperone-0.5.sh)
+[MUC v0.51](https://raw.githubusercontent.com/stumcd/muc/refs/heads/main/macupgradechaperone-0.51.sh)
 
 ### Example screenshots
 'Detected issues' log file:
