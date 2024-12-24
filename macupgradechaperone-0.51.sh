@@ -92,12 +92,12 @@ echo "MDM Server: $mdmUrl"
 echo "--- Checking connection to MDM Server..." | tee -a "$log_file" 
 
 # Check connection to the server
-mdmServerStatus=$(curl -s -o /dev/null -w "%{http_code}" "$mdmUrl")
+mdmServerStatus=$(curl -s -o /dev/null -w "%{http_code}" "$mdmUrl/enrol")
 
 if [ "$mdmServerStatus" -eq 200 ]; then
     echo "--- ✅ MDM Server is reachable. URL: $mdmUrl"
 else
-    echo "--- ❌ Failed to connect to "$mdmUrl". HTTP status code: $response Profile not present." | tee -a "$log_file" | tee -a "$error_log"
+    echo "--- ❌ Failed to connect to "$mdmUrl". HTTP status code: $mdmServerStatus" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
 # Check if Bootstrap Token has been escrowed
@@ -126,6 +126,13 @@ if [ -n "$recovery_volume_check" ]; then
 else
   echo "--- ⚠️ Could not find a 'Recovery' volume. " | tee -a "$log_file" | tee -a "$error_log"
 fi
+
+volume_count=$(diskutil list | grep "Apple_HFS\|APFS\|EFI" | wc -l)
+
+# Get a list of all volumes using diskutil and count them
+volume_count=$(diskutil list | grep "Apple_HFS\|APFS\" | wc -l)
+
+echo "Number of volumes: $volume_count"
 
 # Check available space
 echo "📏 Checking available space..." | tee -a "$log_file"
@@ -236,7 +243,7 @@ fi
 # Check what version of macOS is currently installed
 echo "🖥  Checking existing macOS installation" | tee -a "$log_file"
 
-macos_version=$(sw_vers -productVersion)
+smacos_version=$(sw_vers -productVersion)
 major_version=$(echo "$macos_version" | cut -d '.' -f 1)
 
 echo "--- Installed macOS version: $macos_version." | tee -a "$log_file"
@@ -264,11 +271,11 @@ if [ -s "$error_log" ]; then
 	error_messages=$(cat "$error_log" | sed 's/"/\\"/g')
 
 # Method: Nuke and Pave
-nukeandpave=$("Unfortunately, the best option for this Mac is to erase and reinstall macOS, using either Internet Recovery, Bootable USB, or Apple Configurator 2.")
+recnukeandpave=$("Unfortunately, the best option for this Mac is to erase and reinstall macOS, using either Internet Recovery, Bootable USB, or Apple Configurator 2.")
 
-echo "$recommend-nukeandpave" | tee -a "$log_file"
+echo "$recnukeandpave" | tee -a "$log_file"
 	
-osascript -e "tell application \"System Events\" to display dialog \"$recommend-nukeandpave\n\nIssues detected:\n$error_messages\" buttons {\"Cancel\", \"Show Me How\"} default button \"Show Me How\" with title \"Time to nuke and pave 🎉\"" | grep -q "Show Me How" && open "https://www.apple.com/mac"
+osascript -e "tell application \"System Events\" to display dialog \"$recnukeandpave\n\nIssues detected:\n$error_messages\" buttons {\"Cancel\", \"Show Me How\"} default button \"Show Me How\" with title \"Time to nuke and pave 🎉\"" | grep -q "Show Me How" && open "https://www.apple.com/mac"
 
 # Method: MDM command
 recommend-mdmCommand="Congratulations, you can upgrade this Mac using an MDM command."
