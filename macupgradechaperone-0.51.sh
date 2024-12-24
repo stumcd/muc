@@ -62,27 +62,29 @@ echo "----- Guiding your journey to... ✨ $targetOS ✨" | tee -a "$log_file"
 
 echo "Started: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file" 
 echo "-------------------------" | tee -a "$log_file"
-echo "⚙️  Checking MDM profile and Bootstrap Token..." | tee -a "$log_file"
+echo "⚙️  Checking MDM enrollment..." | tee -a "$log_file"
 
 
 # Check if there's an MDM profile installed
+# Need to factor for whether it's User-Initiated or DEP enrolled
 
-mdm_profile=$(profiles status -type enrollment 2>&1)
+mdm_profile=$(profiles status -type enrollment)
 
 if [[ "$mdm_profile" == *"MDM enrollment: Yes"* ]]; then
   echo "--- ✅ MDM Profile: Installed"  | tee -a "$log_file"
-  mdmUrl=$(defaults read /Library/Preferences/com.apple.mdmclient ServerURL)
-
-echo "MDM Server: "$mdmUrl" | tee -a "$log_file"
-
-else
-  echo "--- ❌ MDM Profile not present. This device is NOT managed." | tee -a "$log_file" | tee -a "$error_log"
+  mdmUrl=$(system_profiler SPConfigurationProfileDataType | awk -F'[/:?]' '/CheckInURL/ {print $4}')
+  echo "MDM Server: "$mdmUrl"." | tee -a "$log_file"
+fi
+ 
+if [[ ! "$mdm_profile" == *"MDM enrollment: Yes"* ]]; then
+  echo "--- ❌ MDM Profile not present. This Mac is NOT managed." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-# Check if MDM profile is removable 
+# Check if the MDM profile is removable
 mdm_profile_removeable=$(profiles -e | grep "IsMDMUnremovable" | awk '{print $3}' | tr -d ';')
 if [[ ${mdm_profile_removeable} = '1' ]]; then
 	echo "--- ✅ MDM profile is NOT removable." | tee -a "$log_file"
+	
 else
 	if [[ ${mdm_profile_removeable} = '0' ]]; then
 		echo "--- ⚠️  MDM Profile is removable." | tee -a "$log_file"
