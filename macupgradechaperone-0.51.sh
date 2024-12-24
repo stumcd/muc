@@ -44,19 +44,18 @@ log_file="$log_dir/macupgradechaperone_${timestamp}.log"
 ## Write to a new error log file for each run, appended with timestamp
 error_log="$log_dir/macupgradechaperone.error_${timestamp}.log"
 
-#### Step 1 - let's check stuff
+#### Step 1 - let's check out this Mac
 
-## Log start time
-# echo "Target macOS Version is: $targetOS"
 echo "========= 🖥️ 🤵 Mac Upgrade Chaperone 🤵 🖥️ =========" | tee -a "$log_file"
 if [[ -n "$targetOS" ]]; then
-	echo "== Jamf Pro Script parameter detected! macOS target version: $targetOS"
-    echo "🎯 macOS Version: $targetOS (via Jamf Pro policy parameters 🎉)"    
+ 	echo "== Jamf Pro Script parameter detected!"
+    echo "🎯 macOS target version: $targetOS (set via Jamf Pro policy parameters 🎉)"    
 else
-    echo "== ⚠️  macOS target version has not specified, defaulting to latest major version"
+    echo "== ⚠️  macOS target version has not been specified, defaulting to latest major version:"
     targetOS="macOS Sonoma"
-    echo "🎯 macOS target version default: $targetOS"
+    echo "🎯 macOS target version: $targetOS"
 fi
+
 echo "-------------------------" | tee -a "$log_file"
 echo "----- Guiding your journey to... ✨ $targetOS ✨" | tee -a "$log_file"
 
@@ -65,7 +64,6 @@ echo "Started: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file"
 echo "-------------------------" | tee -a "$log_file"
 echo "⚙️  Checking MDM profile and Bootstrap Token..." | tee -a "$log_file"
 
-#### MDM checks
 # Check if there's an MDM profile installed
 
 mdm_profile=$(profiles status -type enrollment 2>&1)
@@ -93,18 +91,16 @@ fi
 ### Check connection to JSS
 echo "--- Checking connection to MDM Server..." | tee -a "$log_file" 
 
-# this needs to fail gracefully if there's no connectivity
-# using cURL is probably better than using the jamf binary w checkJSSConnection... 
+echo "MDM Server: $mdmUrl"
 
-mdmServerStatus=$(jamf checkJSSConnection)
+# Check connection to the server
+mdmServerStatus=$(curl -s -o /dev/null -w "%{http_code}" "$mdmUrl")
 
-# Check if the connection was successful
-  if echo "$mdmServerStatus" | grep -q "The JSS is available"; then
-    echo "--- ✅ Jamf Pro Server is reachable. URL: $mdmUrl"
-  else
-    echo "❌ Unable to connect to the Jamf Pro Server."
-    echo "Details: $mdmServerStatus"
-  fi
+if [ "$mdmServerStatus" -eq 200 ]; then
+    echo "--- ✅ MDM Server is reachable. URL: $mdmUrl"
+else
+    echo "--- ❌ Failed to connect to $mdmUrl. HTTP status code: $response Profile not present." | tee -a "$log_file" | tee -a "$error_log"
+fi
 
 # Check if Bootstrap Token has been escrowed
 if profiles status -type bootstraptoken | grep -q "Bootstrap Token escrowed to server: YES"; then
@@ -113,7 +109,7 @@ else
     echo "--- ❌ Bootstrap Token NOT Escrowed" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-#### Disk checks
+#### Check disk volumes
 
 echo "🧐 Checking for unusual disk volumes..." | tee -a "$log_file"
 
@@ -239,6 +235,7 @@ else
   echo "--- ⚠️ A️rchitecture: Intel️" | tee -a "$log_file"
 fi
 
+# Check what version of macOS is currently installed
 echo "🖥  Checking existing macOS installation" | tee -a "$log_file"
 
 macos_version=$(sw_vers -productVersion)
@@ -252,18 +249,23 @@ else
   echo "--- ❌ Installed macOS version ($macos_version) can't upgrade to $targetOS'." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-#### Step 2 - let's determine the best pathway forward
-#### Check the error log and based on what we found, display a dialog recommending an upgrade method 
+#### Step 2 - let's guide you to the right path
+
+#### Check the error log and based on what we found, recommend an upgrade method with an AppleScript dialog
 
 echo "System checks complete." | tee -a "$log_file"
 echo "-------------------------" | tee -a "$log_file"
-echo "Calculating the best upgrade path & reticulating splines.." | tee -a "$log_file"
+echo "Calculating the best upgrade path..." | tee -a "$log_file"
+echo "Reticulating splines..." | tee -a "$log_file"
 
 # Check if the error_log file is non-empty
 if [ -s "$error_log" ]; then
 
 # Read the contents of the error_log file
 	error_messages=$(cat "$error_log" | sed 's/"/\\"/g')  # Escape double quotes
+ 
+ 
+
  
 # Display dialog: bad news - Nuke and Pave
 	nukeandpave="Unfortunately, the best option for this Mac is to erase and reinstall macOS, using either Internet Recovery, Bootable USB, or Apple Configurator 2. "
@@ -279,7 +281,7 @@ fi
 
 
 #### End
-echo "Good luck on your upgrade journey! Bon voyage! 👋" | tee -a "$log_file"
+echo "Best of luck on your upgrade journey! Bon voyage! 👋" | tee -a "$log_file"
 echo "Finished: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file"
 echo "=========================================" | tee -a "$log_file"
 exit 0
