@@ -64,12 +64,17 @@ echo "Started: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file"
 echo "-------------------------" | tee -a "$log_file"
 echo "⚙️  Checking MDM profile and Bootstrap Token..." | tee -a "$log_file"
 
+
 # Check if there's an MDM profile installed
 
 mdm_profile=$(profiles status -type enrollment 2>&1)
+
 if [[ "$mdm_profile" == *"MDM enrollment: Yes"* ]]; then
   echo "--- ✅ MDM Profile: Installed"  | tee -a "$log_file"
-  mdmUrl=$(profiles -e | grep "ConfigurationURL" | awk '{print $3}' | tr -d ';"' | sed 's|/cloudenroll$||')
+  mdmUrl=$(defaults read /Library/Preferences/com.apple.mdmclient ServerURL)
+
+echo "MDM Server: "$mdmUrl" | tee -a "$log_file"
+
 else
   echo "--- ❌ MDM Profile not present. This device is NOT managed." | tee -a "$log_file" | tee -a "$error_log"
 fi
@@ -249,14 +254,15 @@ else
   echo "--- ❌ Installed macOS version ($macos_version) can't upgrade to $targetOS'." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-#### Step 2 - let's guide you to the right path
-
-#### Check the error log and based on what we found, recommend an upgrade method with an AppleScript dialog
-
-echo "System checks complete." | tee -a "$log_file"
+echo "System check complete." | tee -a "$log_file"
 echo "-------------------------" | tee -a "$log_file"
 echo "Calculating the best upgrade path..." | tee -a "$log_file"
 echo "Reticulating splines..." | tee -a "$log_file"
+echo "-------------------------" | tee -a "$log_file"
+
+#### Step 2 - let's guide you to the right path
+#### Check the error log and based on what we found, recommend an upgrade method with an AppleScript dialog
+
 
 # Check if the error_log file is non-empty
 if [ -s "$error_log" ]; then
@@ -267,18 +273,20 @@ if [ -s "$error_log" ]; then
  
 
  
-# Display dialog: bad news - Nuke and Pave
-	nukeandpave="Unfortunately, the best option for this Mac is to erase and reinstall macOS, using either Internet Recovery, Bootable USB, or Apple Configurator 2. "
-	echo "$nukeandpave" | tee -a "$log_file"
-    osascript -e "tell application \"System Events\" to display dialog \"$nukeandpave\n\nIssues detected:\n$error_messages\" buttons {\"OK\"} default button \"OK\" with title \"Time to nuke and pave 🎉\""
-else
+# Method: Nuke and Pave
+recommend-nukeandpave="Unfortunately, the best option for this Mac is to erase and reinstall macOS, using either Internet Recovery, Bootable USB, or Apple Configurator 2. "
 
-# Display dialog: Best case scenario - MDM
-    success_message="Congratulations, you can upgrade this Mac using an MDM command."
-    echo "$success_message" | tee -a "$log_file"
-    osascript -e "tell application \"System Events\" to display dialog \"${success_message}\" buttons {\"OK\"} default button \"OK\" with title \"No issues detected 🎉\""
+echo "$recommend-nukeandpave" | tee -a "$log_file"
+	
+osascript -e "tell application \"System Events\" to display dialog \"$recommend-nukeandpave\n\nIssues detected:\n$error_messages\" buttons {\"Cancel\", \"Show Me How\"} default button \"Show Me How\" with title \"Time to nuke and pave 🎉\"" | grep -q "Show Me How" && open "https://www.apple.com/mac"
+
+# Method: MDM command
+recommend-mdmCommand="Congratulations, you can upgrade this Mac using an MDM command."
+
+echo "$success_message" | tee -a "$log_file"
+
+osascript -e "tell application \"System Events\" to display dialog \"${success_message}\" buttons {\"OK\"} default button \"OK\" with title \"No issues detected 🎉\""
 fi
-
 
 #### End
 echo "Best of luck on your upgrade journey! Bon voyage! 👋" | tee -a "$log_file"
