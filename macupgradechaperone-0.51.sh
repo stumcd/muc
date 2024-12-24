@@ -70,10 +70,11 @@ echo "⚙️  Checking MDM enrollment..." | tee -a "$log_file"
 
 mdm_profile=$(profiles status -type enrollment)
 
+mdmUrl=$(system_profiler SPConfigurationProfileDataType | awk -F'[/:?]' '/CheckInURL/ {print $4}')
+
 if [[ "$mdm_profile" == *"MDM enrollment: Yes"* ]]; then
-  echo "--- ✅ MDM Profile: Installed"  | tee -a "$log_file"
-  mdmUrl=$(system_profiler SPConfigurationProfileDataType | awk -F'[/:?]' '/CheckInURL/ {print $4}')
-  echo "MDM Server: "$mdmUrl"." | tee -a "$log_file"
+  echo "--- ✅ MDM Profile: Installed. Server URL: "$mdmUrl"." | tee -a "$log_file"
+  
 fi
  
 if [[ ! "$mdm_profile" == *"MDM enrollment: Yes"* ]]; then
