@@ -17,10 +17,6 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
-## Set the target version
-# Jamf Pro script parameters
-targetOS=$5
-
 # Get the current timestamp (format: YYYYMMDD_HHMMSS)
 timestamp=$(date +"%Y%m%d_%H%M%S")
 #echo "$timestamp" | tee -a "$log_file"
@@ -30,7 +26,7 @@ log_dir="/usr/local/muc"
 
 ## Create the directory if it doesn't exist
 if [ ! -d "$log_dir" ]; then
-  echo "The directory $log_dir does not exist. Creating it now..."
+  echo "The directory '$log_dir' does not exist. Creating it now..."
   sudo mkdir -p "$log_dir"
   sudo chown $(whoami) "$log_dir"  # Ensure the current user has ownership
 fi
@@ -41,12 +37,16 @@ log_file="$log_dir/macupgradechaperone_${timestamp}.log"
 ## Write to a new error log file for each run, appended with timestamp
 error_log="$log_dir/macupgradechaperone.error_${timestamp}.log"
 
-#### Step 1 - let's check out this Mac
+## Set the target version
+# Jamf Pro script parameters
+targetOS="$5"
 
+#### Step 1 - let's check out this Mac
 echo "========= 🖥️ 🤵 Mac Upgrade Chaperone 🤵 🖥️ =========" | tee -a "$log_file"
 if [[ -n "$targetOS" ]]; then
  	echo "== Jamf Pro Script parameter detected!"
     echo "🎯 macOS target version: $targetOS (set via Jamf Pro policy parameters 🎉)"    
+
 else
     echo "== ⚠️  macOS target version has not been specified, defaulting to latest major version:"
     targetOS="macOS Sonoma"
@@ -60,7 +60,6 @@ echo "-------------------------" | tee -a "$log_file"
 echo "⚙️  Checking MDM enrollment..." | tee -a "$log_file"
 
 # Check if there's an MDM profile installed
-
 mdm_profile=$(profiles status -type enrollment)
 
 if [[ "$mdm_profile" == *"MDM enrollment: Yes"* ]]; then
@@ -73,6 +72,7 @@ fi
 
 # Check if the MDM profile is removable
 mdm_profile_removeable=$(profiles -e | grep "IsMDMUnremovable" | awk '{print $3}' | tr -d ';')
+
 if [[ ${mdm_profile_removeable} = '1' ]]; then
 	echo "--- ✅ MDM profile is NOT removable." | tee -a "$log_file"
 	
@@ -82,16 +82,14 @@ else
 	fi
 fi
 
+mdmUrl=$(system_profiler SPConfigurationProfileDataType | awk -F'[/:?]' '/CheckInURL/ {print $4}')
+
 echo "MDM Server: $mdmUrl"
 
-### add:
-### check expiry on MDM cert
-
+### add: check expiry on MDM cert
 
 ### Check connection to JSS
 echo "--- Checking connection to MDM Server..." | tee -a "$log_file" 
-
-
 
 # Check connection to the server
 mdmServerStatus=$(curl -s -o /dev/null -w "%{http_code}" "$mdmUrl")
@@ -110,7 +108,6 @@ else
 fi
 
 #### Check disk volumes
-
 echo "🧐 Checking for unusual disk volumes..." | tee -a "$log_file"
 
 # Check for "Macintosh HD"
@@ -130,38 +127,38 @@ else
   echo "--- ⚠️ Could not find a 'Recovery' volume. " | tee -a "$log_file" | tee -a "$error_log"
 fi
 
+# Check available space
 echo "📏 Checking available space..." | tee -a "$log_file"
 
-# Check available space
 available_space=$(df / | tail -1 | awk '{print $4}')
 
 # Convert available space from 1K blocks to GB (divide by 1,048,576)
 available_space_gb=$((available_space / 1048576))
 
 if [ "$available_space_gb" -ge 20 ]; then
-  echo "--- ✅ There is enough free space (20 GB required, $available_space_gb GB available)." | tee -a "$log_file"
+echo "--- ✅ There is enough free space (20 GB required, $available_space_gb GB available)." | tee -a "$log_file"
 else
-  echo "--- ❌ There is not enough free space on disk ($available_space_gb GB available, 20 GB required)." | tee -a "$log_file" | tee -a "$error_log"
+
+echo "--- ❌ There is not enough free space on disk ($available_space_gb GB available, 20 GB required)." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-#### Retrieve and display hardware info
-
-echo "🖥  Mac hardware:" | tee -a "$log_file"
-
+# Retrieve hardware info
+hardware_serial=$(system_profiler SPHardwareDataType | awk -F ": " '/Serial Number/ {print $2}')
 hardware_name=$(system_profiler SPHardwareDataType | awk -F ": " '/Model Name/ {print $2}')
 hardware_modelidentifier=$(system_profiler SPHardwareDataType | awk '/Model Identifier/ {print $3}')
 hardware_chip=$(system_profiler SPHardwareDataType | awk -F ": " '/Processor Name/ {print $2}')
 processor_name=$(system_profiler SPHardwareDataType | awk -F ": " '/Chip/ {print $2}')
-hardware_serial=$(system_profiler SPHardwareDataType | awk -F ": " '/Serial Number/ {print $2}')
 
 # Display hardware info
+echo "🖥  Mac hardware:" | tee -a "$log_file"
+echo "- Serial: $hardware_serial" | tee -a "$log_file"
 echo "- Model: $hardware_name" | tee -a "$log_file"
 echo "- Model Identifier: $hardware_modelidentifier" | tee -a "$log_file"
 echo "- Chip: $hardware_chip" | tee -a "$log_file"
-echo "- Serial: $hardware_serial" | tee -a "$log_file"
+echo "- Processor Name: $processor_name" | tee -a "$log_file"
+
 
 #### Check compatibility
-
 # Define an array of compatible models
 compatible_models=(
   "MacBookAir8,1"  # MacBook Air (2018)
@@ -227,7 +224,7 @@ compatible_models=(
 if [[ " ${compatible_models[@]} " =~ " $hardware_modelidentifier " ]]; then
     echo "--- ✅ Compatible with $targetOS" | tee -a "$log_file"
 else
-    echo "❌ This Mac is not compatible with $targetOS. " | tee -a "$log_file" | tee -a "$error_log"
+    echo "--- ❌ This Mac is not compatible with $targetOS. " | tee -a "$log_file" | tee -a "$error_log"
 fi
 
 if [ "$(uname -m)" = "arm64" ]; then
@@ -251,7 +248,7 @@ else
 fi
 
 echo "-------------------------" | tee -a "$log_file"
-echo "System evaluation complete." | tee -a "$log_file"
+echo "Evaluation complete." | tee -a "$log_file"
 echo "-------------------------" | tee -a "$log_file"
 echo "Calculating the best upgrade path..." | tee -a "$log_file"
 echo "Reticulating splines..." | tee -a "$log_file"
@@ -260,16 +257,12 @@ echo "-------------------------" | tee -a "$log_file"
 #### Step 2 - let's guide you to the right path
 #### Check the error log and based on what we found, recommend an upgrade method with an AppleScript dialog
 
-
 # Check if the error_log file is non-empty
 if [ -s "$error_log" ]; then
 
 # Read the contents of the error_log file
-	error_messages=$(cat "$error_log" | sed 's/"/\\"/g')  # Escape double quotes
- 
- 
+	error_messages=$(cat "$error_log" | sed 's/"/\\"/g')
 
- 
 # Method: Nuke and Pave
 nukeandpave=$("Unfortunately, the best option for this Mac is to erase and reinstall macOS, using either Internet Recovery, Bootable USB, or Apple Configurator 2.")
 
