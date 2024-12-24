@@ -106,7 +106,7 @@ mdmServerStatus=$(curl -s -o /dev/null -w "%{http_code}" "$mdmUrl")
 if [ "$mdmServerStatus" -eq 200 ]; then
     echo "--- ✅ MDM Server is reachable. URL: $mdmUrl"
 else
-    echo "--- ❌ Failed to connect to $mdmUrl. HTTP status code: $response Profile not present." | tee -a "$log_file" | tee -a "$error_log"
+    echo "--- ❌ Failed to connect to "$mdmUrl". HTTP status code: $response Profile not present." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
 # Check if Bootstrap Token has been escrowed
@@ -276,7 +276,7 @@ if [ -s "$error_log" ]; then
 
  
 # Method: Nuke and Pave
-recommend-nukeandpave="Unfortunately, the best option for this Mac is to erase and reinstall macOS, using either Internet Recovery, Bootable USB, or Apple Configurator 2. "
+nukeandpave=$("Unfortunately, the best option for this Mac is to erase and reinstall macOS, using either Internet Recovery, Bootable USB, or Apple Configurator 2.")
 
 echo "$recommend-nukeandpave" | tee -a "$log_file"
 	
