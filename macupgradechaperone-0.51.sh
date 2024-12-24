@@ -84,7 +84,7 @@ fi
 
 mdmUrl=$(system_profiler SPConfigurationProfileDataType | awk -F'[/:?]' '/CheckInURL/ {print $4}')
 
-echo "MDM Server: $mdmUrl"
+echo "--- MDM Server: $mdmUrl"
 
 ### add: check expiry on MDM cert
 
@@ -130,7 +130,7 @@ fi
 # Get a list of all volumes using diskutil and count them
 volume_count=$(diskutil list | grep "Apple_HFS\|APFS" | wc -l)
 
-echo "Number of volumes: $volume_count"
+echo "--- Number of volumes: $volume_count"
 
 # Check available space
 echo "📏 Checking available space..." | tee -a "$log_file"
