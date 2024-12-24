@@ -127,10 +127,8 @@ else
   echo "--- ⚠️ Could not find a 'Recovery' volume. " | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-volume_count=$(diskutil list | grep "Apple_HFS\|APFS\|EFI" | wc -l)
-
 # Get a list of all volumes using diskutil and count them
-volume_count=$(diskutil list | grep "Apple_HFS\|APFS\" | wc -l)
+volume_count=$(diskutil list | grep "Apple_HFS\|APFS" | wc -l)
 
 echo "Number of volumes: $volume_count"
 
