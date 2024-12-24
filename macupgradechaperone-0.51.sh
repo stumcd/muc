@@ -19,10 +19,7 @@ fi
 
 ## Set the target version
 # Jamf Pro script parameters
-targetOS=$4
-
-# Hardcoded value for testing
-# targetOS="macOS Sonoma"
+targetOS=$5
 
 # Get the current timestamp (format: YYYYMMDD_HHMMSS)
 timestamp=$(date +"%Y%m%d_%H%M%S")
@@ -58,26 +55,19 @@ fi
 
 echo "-------------------------" | tee -a "$log_file"
 echo "----- Guiding your journey to... ✨ $targetOS ✨" | tee -a "$log_file"
-
-
 echo "Started: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file" 
 echo "-------------------------" | tee -a "$log_file"
 echo "⚙️  Checking MDM enrollment..." | tee -a "$log_file"
 
-
 # Check if there's an MDM profile installed
-# Need to factor for whether it's User-Initiated or DEP enrolled
 
 mdm_profile=$(profiles status -type enrollment)
 
-mdmUrl=$(system_profiler SPConfigurationProfileDataType | awk -F'[/:?]' '/CheckInURL/ {print $4}')
-
 if [[ "$mdm_profile" == *"MDM enrollment: Yes"* ]]; then
-  echo "--- ✅ MDM Profile: Installed. Server URL: "$mdmUrl"." | tee -a "$log_file"
-  
+  echo "--- ✅ MDM Profile: Installed." | tee -a "$log_file"  
 fi
  
-if [[ ! "$mdm_profile" == *"MDM enrollment: Yes"* ]]; then
+if [[ "$mdm_profile" == *"MDM enrollment: No"* ]]; then
   echo "--- ❌ MDM Profile not present. This Mac is NOT managed." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
@@ -92,6 +82,8 @@ else
 	fi
 fi
 
+echo "MDM Server: $mdmUrl"
+
 ### add:
 ### check expiry on MDM cert
 
@@ -99,7 +91,7 @@ fi
 ### Check connection to JSS
 echo "--- Checking connection to MDM Server..." | tee -a "$log_file" 
 
-echo "MDM Server: $mdmUrl"
+
 
 # Check connection to the server
 mdmServerStatus=$(curl -s -o /dev/null -w "%{http_code}" "$mdmUrl")
@@ -158,7 +150,8 @@ echo "🖥  Mac hardware:" | tee -a "$log_file"
 
 hardware_name=$(system_profiler SPHardwareDataType | awk -F ": " '/Model Name/ {print $2}')
 hardware_modelidentifier=$(system_profiler SPHardwareDataType | awk '/Model Identifier/ {print $3}')
-hardware_chip=$(system_profiler SPHardwareDataType | awk -F ": " '/Chip/ {print $2}')
+hardware_chip=$(system_profiler SPHardwareDataType | awk -F ": " '/Processor Name/ {print $2}')
+processor_name=$(system_profiler SPHardwareDataType | awk -F ": " '/Chip/ {print $2}')
 hardware_serial=$(system_profiler SPHardwareDataType | awk -F ": " '/Serial Number/ {print $2}')
 
 # Display hardware info
@@ -234,7 +227,7 @@ compatible_models=(
 if [[ " ${compatible_models[@]} " =~ " $hardware_modelidentifier " ]]; then
     echo "--- ✅ Compatible with $targetOS" | tee -a "$log_file"
 else
-    echo "NOT compatible with $targetOS. ❌" | tee -a "$log_file" | tee -a "$error_log"
+    echo "❌ This Mac is not compatible with $targetOS. " | tee -a "$log_file" | tee -a "$error_log"
 fi
 
 if [ "$(uname -m)" = "arm64" ]; then
@@ -254,10 +247,11 @@ echo "--- Installed macOS version: $macos_version." | tee -a "$log_file"
 if [ "$major_version" -ge 11 ]; then
   echo "--- ✅ $macos_version can upgrade to $targetOS" | tee -a "$log_file"
 else
-  echo "--- ❌ Installed macOS version ($macos_version) can't upgrade to $targetOS'." | tee -a "$log_file" | tee -a "$error_log"
+  echo "--- ❌ Installed macOS version ($macos_version) can't upgrade to $targetOS. It's time to upgrade." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-echo "System check complete." | tee -a "$log_file"
+echo "-------------------------" | tee -a "$log_file"
+echo "System evaluation complete." | tee -a "$log_file"
 echo "-------------------------" | tee -a "$log_file"
 echo "Calculating the best upgrade path..." | tee -a "$log_file"
 echo "Reticulating splines..." | tee -a "$log_file"
