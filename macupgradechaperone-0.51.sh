@@ -108,6 +108,7 @@ else
 fi
 
 #### Check disk volumes
+echo "-------------------------" | tee -a "$log_file"
 echo "🧐 Checking for unusual disk volumes..." | tee -a "$log_file"
 
 # Check for "Macintosh HD"
@@ -133,6 +134,7 @@ volume_count=$(diskutil list | grep "Apple_HFS\|APFS" | wc -l)
 echo "--- Number of volumes: $volume_count"
 
 # Check available space
+echo "-------------------------" | tee -a "$log_file"
 echo "📏 Checking available space..." | tee -a "$log_file"
 
 available_space=$(df / | tail -1 | awk '{print $4}')
@@ -155,6 +157,7 @@ hardware_chip=$(system_profiler SPHardwareDataType | awk -F ": " '/Processor Nam
 processor_name=$(system_profiler SPHardwareDataType | awk -F ": " '/Chip/ {print $2}')
 
 # Display hardware info
+echo "-------------------------" | tee -a "$log_file"
 echo "🖥  Mac hardware:" | tee -a "$log_file"
 echo "- Serial: $hardware_serial" | tee -a "$log_file"
 echo "- Model: $hardware_name" | tee -a "$log_file"
@@ -162,8 +165,8 @@ echo "- Model Identifier: $hardware_modelidentifier" | tee -a "$log_file"
 echo "- Chip: $hardware_chip" | tee -a "$log_file"
 echo "- Processor Name: $processor_name" | tee -a "$log_file"
 
-
 #### Check compatibility
+echo "-------------------------" | tee -a "$log_file"
 # Define an array of compatible models
 compatible_models=(
   "MacBookAir8,1"  # MacBook Air (2018)
@@ -226,6 +229,7 @@ compatible_models=(
 )
 
 # Check if the hardware model is in the list of compatible models
+echo "-------------------------" | tee -a "$log_file"
 if [[ " ${compatible_models[@]} " =~ " $hardware_modelidentifier " ]]; then
     echo "--- ✅ Compatible with $targetOS" | tee -a "$log_file"
 else
@@ -239,9 +243,10 @@ else
 fi
 
 # Check what version of macOS is currently installed
+echo "-------------------------" | tee -a "$log_file"
 echo "🖥  Checking existing macOS installation" | tee -a "$log_file"
 
-smacos_version=$(sw_vers -productVersion)
+macos_version=$(sw_vers -productVersion)
 major_version=$(echo "$macos_version" | cut -d '.' -f 1)
 
 echo "--- Installed macOS version: $macos_version." | tee -a "$log_file"
@@ -249,7 +254,7 @@ echo "--- Installed macOS version: $macos_version." | tee -a "$log_file"
 if [ "$major_version" -ge 11 ]; then
   echo "--- ✅ $macos_version can upgrade to $targetOS" | tee -a "$log_file"
 else
-  echo "--- ❌ Installed macOS version ($macos_version) can't upgrade to $targetOS. It's time to upgrade." | tee -a "$log_file" | tee -a "$error_log"
+  echo "--- ❌ Installed macOS version ($macos_version) can't upgrade to $targetOS." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
 echo "-------------------------" | tee -a "$log_file"
@@ -283,7 +288,7 @@ echo "$success_message" | tee -a "$log_file"
 osascript -e "tell application \"System Events\" to display dialog \"${success_message}\" buttons {\"OK\"} default button \"OK\" with title \"No issues detected 🎉\""
 fi
 
-#### End
+#### Wrap up
 echo "Best of luck on your upgrade journey! Bon voyage! 👋" | tee -a "$log_file"
 echo "Finished: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file"
 echo "=========================================" | tee -a "$log_file"
