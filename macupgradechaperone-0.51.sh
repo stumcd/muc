@@ -1,4 +1,5 @@
 #!/bin/bash
+
 # -----------------------------------------------------
 # Script Name: MacUpgradeChaperone.sh
 # Description: This script will guide you to the best upgrade method for the host Mac
@@ -10,7 +11,7 @@
 # -----------------------------------------------------
 
 ####################################
-#     Pre-Run Setup & Checks       #
+#          Initial Setup           #
 ####################################
 
 ## Check if the script is running as sudo
@@ -41,10 +42,10 @@ error_log="$log_dir/macupgradechaperone.error_${timestamp}.log"
 
 ## Set the target version
 # Jamf Pro script parameters
-targetOS="$5"
+targetOS=$5
 
 ####################################
-#        Step 1 - Evaluation       #
+#         Step 1 - Checks          #
 ####################################
 
 echo "========= 🖥️ 🤵 Mac Upgrade Chaperone 🤵 🖥️ =========" | tee -a "$log_file"
@@ -122,7 +123,7 @@ volume_check=$(diskutil list | grep "Macintosh HD")
 if [ -n "$volume_check" ]; then
   echo "--- ✅ Found a volume named 'Macintosh HD'." | tee -a "$log_file"
 else
-  echo "--- ⚠️ There is no volume present named 'Macintosh HD'." | tee -a "$log_file" | tee -a "$error_log"
+  echo "--- ⚠️ 'Macintosh HD' volume not found." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
 # Check for Recovery volume
@@ -130,7 +131,7 @@ recovery_volume_check=$(diskutil list | grep "Recovery")
 if [ -n "$recovery_volume_check" ]; then
   echo "--- ✅ Found a volume named 'Recovery'." | tee -a "$log_file"
 else
-  echo "--- ⚠️ Could not find a 'Recovery' volume. " | tee -a "$log_file" | tee -a "$error_log"
+  echo "--- ⚠️ 'Recovery' volume not found. " | tee -a "$log_file" | tee -a "$error_log"
 fi
 
 # Get a list of all volumes using diskutil and count them
@@ -277,11 +278,18 @@ echo "-------------------------" | tee -a "$log_file"
 
 # Categorize errors
 # Group A = Not compatible with the target macOS version
-# Group B = Insta-Fail, need to nuke & pave
+# Group B = Insta-Fail- time to nuke & pave
 # Group C = Can upgrade, but not via MDM command
-# Group D = Bit weird, but probably fine
+# Group D = Can't currently upgrade, but is compatible
+# Group E = Bit weird, but probably fine
 
-# Display message and buttons based on error group
+GROUP_A_ERRORS=$(grep -E "Not compatible|not supported" "$ERROR_LOG")
+GROUP_B_ERRORS=$(grep -E "volume not present" "$ERROR_LOG")
+GROUP_C_ERRORS=$(grep -E "Important file is missing" "$ERROR_LOG")
+GROUP_D_ERRORS=$(grep -E "not enough free space on disk" "$ERROR_LOG")
+GROUP_E_ERRORS=$(grep -E "..." "$ERROR_LOG")
+
+# Set the message and buttons based on error group
 if [ -n "$GROUP_A_ERRORS" ]; then
     MESSAGE="Group A issues found:\n\n$GROUP_A_ERRORS\n\nNot compatible with target version of macOS ($targetOS)."
     BUTTON="Compatibility Info..."
@@ -294,14 +302,18 @@ elif [ -n "$GROUP_C_ERRORS" ]; then
     MESSAGE="Group C issues found:\n\n$GROUP_C_ERRORS\n\nThis Mac can be upgraded, but you won't be able to use MDM commands to achieve this. Recommendation: upgrade macOS via System Preferences"
     BUTTON="OK"
 elif [ -n "$GROUP_D_ERRORS" ]; then
-    MESSAGE="Group D issues found:\n\n$GROUP_D_ERRORS\n\nNo major roadblocks, but should be noted."
+    MESSAGE="Group D issues found:\n\n$GROUP_D_ERRORS\n\nNot enough free space on disk."
     BUTTON="OK"
 else
     MESSAGE="Great news- all checks passed successfully. You can upgrade this Mac via MDM. 🎉 Log into your MDM server ($mdmUrl) and go from there."
     BUTTON="OK"
 fi
 
-# Display the message using AppleScript
+
+echo "======= $MESSAGE ======" | tee -a "$log_file"
+
+# Use AppleScript to display notification
+
 if [ "$BUTTON" != "OK" ]; then
     osascript <<EOF
 tell application "System Events"
