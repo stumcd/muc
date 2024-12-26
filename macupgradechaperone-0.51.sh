@@ -98,7 +98,19 @@ if [[ "$mdm_profile" == *"MDM enrollment: No"* ]]; then
   echo "--- ❌ MDM Profile not present. This Mac is NOT managed." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-### add here: check expiry on MDM cert (idea from Mark)
+# Check if the MDM profile is expired
+mdm_profile_expiry=$(profiles show | grep -A 1 "MDM Profile" | grep "ExpirationDate" | awk '{print $2}')
+
+if [[ -z "$mdm_profile_expiry" ]]; then
+    echo "--- ❌ No expiration date found or MDM profile is missing."
+else
+    current_date=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    if [[ "$mdm_profile_expiry" < "$current_date" ]]; then
+        echo "--- ❌ The MDM profile has expired."
+    else
+        echo "--- ✅ The MDM profile has not expired."
+    fi
+fi
 
 # Check if enrolled in MDM via Automated Device Enrolment
 ade_enrolled=$(profiles status -type enrollment)
@@ -147,27 +159,28 @@ fi
 echo "-------------------------" | tee -a "$log_file"
 echo "🧐 Checking the volumes on disk..." | tee -a "$log_file"
 
-# Check for Macintosh HD volume
-vol_check_macintosh_hd=$(diskutil list | grep "Macintosh HD")
+# List of volumes to check
+volumes=("Macintosh HD" "Macintosh HD - Data" "Preboot" "Recovery" "VM")
 
-if [ -n "$volume_check" ]; then
-  echo "--- ✅ Found a volume named 'Macintosh HD'." | tee -a "$log_file"
+# Flag to track missing volumes
+all_volumes_present=true
+
+# Loop through and check for each volume
+for volume in "${VOLUMES[@]}"; do
+  if diskutil list | grep -q "$volume"; then
+    echo "✅ '$volume' Volume is present."
+  else
+    echo "❌ '$volume' Volume is missing."
+    all_volumes_present=false
+  fi
+done
+
+# Final check for all volumes
+if [ "$all_volumes_present" = true ]; then
+  echo "✅ All required volumes are present."
 else
-  echo "--- ❌ 'Macintosh HD' volume not found." | tee -a "$log_file" | tee -a "$error_log"
+  echo "❌ Some required volumes are missing."
 fi
-
-# Check for Recovery volume
-vol_check_recovery=$(diskutil list | grep "Recovery")
-if [ -n "$recovery_volume_check" ]; then
-  echo "--- ✅ Found a volume named 'Recovery'." | tee -a "$log_file"
-else
-  echo "--- ❌ 'Recovery' volume not found. " | tee -a "$log_file" | tee -a "$error_log"
-fi
-
-# Count the number of volumes - normally 8? 
-volume_count=$(diskutil list | grep "Apple_HFS\|APFS" | wc -l)
-
-echo "--- Number of volumes: $volume_count" | tee -a "$log_file"
 
 # Check available space
 echo "-------------------------" | tee -a "$log_file"
@@ -293,6 +306,8 @@ else
   echo "--- ❌ Installed macOS version cannot upgrade straight to $targetOS. (Installed version: $macos_version" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
+## Checking if there are any MDM restrictions in place that woudl prevent upgrading 
+
 echo "Checking macOS upgrade restrictions..." | tee -a "$log_file"
 
 # Check macOS upgrade restrictions in com.apple.applicationaccess
@@ -303,7 +318,7 @@ if sudo defaults read /Library/Managed\ Preferences/com.apple.applicationaccess 
     if [ "$restrict" == "1" ]; then
         echo "--- ❌ Software updates are restricted by MDM." | tee -a "$log_file" | tee -a "$error_log"
     elif [ -n "$max_os" ]; then
-        echo "Maximum allowed macOS version: $max_os" | tee -a "$log_file"
+        echo "------ Maximum allowed macOS version: $max_os" | tee -a "$log_file" | tee -a "$error_log"
     else
         echo "--- ✅ No macOS restrictions found in com.apple.applicationaccess." | tee -a "$log_file"
     fi
@@ -317,15 +332,15 @@ catalog_url=$(defaults read /Library/Preferences/com.apple.SoftwareUpdate Catalo
 if [ -z "$catalog_url" ]; then
     echo "--- ✅ The system is using Apple's default software update catalog." | tee -a "$log_file"
 else
-    echo "Custom software update catalog URL detected: $catalog_url" | tee -a "$log_file" | tee -a "$error_log"
+    echo "--- ❌ Custom software update catalog URL detected: $catalog_url" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
 # Check MDM software update commands
 mdm_logs=$(log show --predicate 'eventMessage contains "MDM"' --info | grep "SoftwareUpdate" 2>/dev/null)
 
 if [ -n "$mdm_logs" ]; then
-    echo "MDM commands related to SoftwareUpdate detected:" 
-    echo "$mdm_logs"
+    echo "--- ❌ MDM commands related to SoftwareUpdate detected:" 
+    echo "------ $mdm_logs"
 else
     echo "--- ✅ No MDM SoftwareUpdate commands detected in the logs." | tee -a "$log_file" | tee -a "$error_log"
 fi
