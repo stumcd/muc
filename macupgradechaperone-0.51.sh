@@ -40,23 +40,24 @@ log_file="$log_dir/macupgradechaperone_${timestamp}.log"
 ## Write to a new error log file for each run, appended with timestamp
 error_log="$log_dir/macupgradechaperone.error_${timestamp}.log"
 
-## Set the target version
-# Jamf Pro script parameters
-targetOS=$5
+
 
 ####################################
 #         Step 1 - Checks          #
 ####################################
 
 echo "========= 🖥️ 🤵 Mac Upgrade Chaperone 🤵 🖥️ =========" | tee -a "$log_file"
-if [[ -n "$targetOS" ]]; then
- 	echo "== Jamf Pro Script parameter detected!"
-    echo "🎯 macOS target version: $targetOS (set via Jamf Pro policy parameters 🎉)"    
 
+## Check the target version, will use default if not specified
+
+targetOS=${5:-"macOS Sonoma"}
+
+echo "-- Target version: $targetOS" | tee -a "$log_file"
+
+if [[ $targetOS == "macOS Sonoma" ]]; then
+    echo "Target OS version has not set by Jamf Pro script parameters, so defaulting to latest major version."
 else
-    echo "== ⚠️  macOS target version has not been specified, defaulting to latest major version:"
-    targetOS="macOS Sonoma"
-    echo "🎯 macOS target version: $targetOS"
+    echo "Target version set by script parameters: $targetOS"
 fi
 
 echo "-------------------------" | tee -a "$log_file"
@@ -65,7 +66,8 @@ echo "Started: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file"
 echo "-------------------------" | tee -a "$log_file"
 echo "⚙️  Checking MDM enrollment..." | tee -a "$log_file"
 
-# Check if there's an MDM profile installed
+# Check if there's an MDM profile
+
 mdm_profile=$(profiles status -type enrollment)
 
 if [[ "$mdm_profile" == *"MDM enrollment: Yes"* ]]; then
@@ -76,7 +78,7 @@ if [[ "$mdm_profile" == *"MDM enrollment: No"* ]]; then
   echo "--- ❌ MDM Profile not present. This Mac is NOT managed." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-# Check if the MDM profile is removable
+# Check if MDM profile is removable
 mdm_profile_removeable=$(profiles -e | grep "IsMDMUnremovable" | awk '{print $3}' | tr -d ';')
 
 if [[ ${mdm_profile_removeable} = '1' ]]; then
@@ -333,7 +335,7 @@ fi
 
 
 ####################################
-#             Wrap Up              #
+#       Wrap Up & Farewell         #
 ####################################
 
 echo "Best of luck on your upgrade journey! Bon voyage! 👋" | tee -a "$log_file"
