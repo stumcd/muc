@@ -96,14 +96,13 @@ echo "--- MDM Server: $mdmUrl"
 
 ### add: check expiry on MDM cert
 
-### Check connection to JSS
+### Check connection to MDM server
 echo "--- Checking connection to MDM Server..." | tee -a "$log_file" 
 
-# Check connection to the server
 mdmServerStatus=$(curl -s -o /dev/null -w "%{http_code}" "$mdmUrl/enrol")
 
 if [ "$mdmServerStatus" -eq 200 ]; then
-    echo "--- ✅ MDM Server is reachable. URL: $mdmUrl"
+    echo "--- ✅ MDM Server is reachable. URL: $mdmUrl. HTTP status code: $mdmServerStatus"
 else
     echo "--- ❌ Failed to connect to "$mdmUrl". HTTP status code: $mdmServerStatus" | tee -a "$log_file" | tee -a "$error_log"
 fi
@@ -119,7 +118,7 @@ fi
 echo "-------------------------" | tee -a "$log_file"
 echo "🧐 Checking for unusual disk volumes..." | tee -a "$log_file"
 
-# Check for "Macintosh HD"
+# Check for Macintosh HD volume
 volume_check=$(diskutil list | grep "Macintosh HD")
 
 if [ -n "$volume_check" ]; then
@@ -139,7 +138,7 @@ fi
 # Get a list of all volumes using diskutil and count them
 volume_count=$(diskutil list | grep "Apple_HFS\|APFS" | wc -l)
 
-echo "--- Number of volumes: $volume_count"
+echo "--- Number of volumes: $volume_count" | tee -a "$log_file"
 
 # Check available space
 echo "-------------------------" | tee -a "$log_file"
@@ -147,7 +146,7 @@ echo "📏 Checking available space..." | tee -a "$log_file"
 
 available_space=$(df / | tail -1 | awk '{print $4}')
 
-# Convert available space from 1K blocks to GB (divide by 1,048,576)
+# Convert available space to GB
 available_space_gb=$((available_space / 1048576))
 
 if [ "$available_space_gb" -ge 20 ]; then
@@ -265,16 +264,16 @@ else
   echo "--- ❌ Installed macOS version cannot upgrade straight to $targetOS. (Installed version: $macos_version" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-echo "-------------------------" | tee -a "$log_file"
-echo "Evaluation complete." | tee -a "$log_file"
-echo "-------------------------" | tee -a "$log_file"
-echo "Calculating the best upgrade path..." | tee -a "$log_file"
-echo "Reticulating splines..." | tee -a "$log_file"
-echo "-------------------------" | tee -a "$log_file"
-
 ####################################
 #      Step 2 - Calculation        #
 ####################################
+
+echo "-------------------------" | tee -a "$log_file"
+echo "Evaluation complete." | tee -a "$log_file"
+echo "-------------------------" | tee -a "$log_file"
+echo "🧮 Calculating the best upgrade path..." | tee -a "$log_file"
+echo "🌲 Reticulating splines..." | tee -a "$log_file"
+echo "-------------------------" | tee -a "$log_file"
 
 #### Check the error log and based on what we found, recommend an upgrade method with an AppleScript dialog
 
@@ -287,9 +286,9 @@ echo "-------------------------" | tee -a "$log_file"
 
 GROUP_A_ERRORS=$(grep -E "Not compatible|not supported" "$ERROR_LOG")
 GROUP_B_ERRORS=$(grep -E "volume not present" "$ERROR_LOG")
-GROUP_C_ERRORS=$(grep -E "Important file is missing" "$ERROR_LOG")
+GROUP_C_ERRORS=$(grep -E "This Mac is NOT managed|blahC" "$ERROR_LOG")
 GROUP_D_ERRORS=$(grep -E "not enough free space on disk" "$ERROR_LOG")
-GROUP_E_ERRORS=$(grep -E "..." "$ERROR_LOG")
+GROUP_E_ERRORS=$(grep -E "Intel" "$ERROR_LOG")
 
 # Set the message and buttons based on error group
 if [ -n "$GROUP_A_ERRORS" ]; then
