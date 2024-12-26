@@ -34,7 +34,7 @@ fi
 
 ## Check if we can reach Apple
 if ! ping -c 1 apple.com &>/dev/null; then
-    echo "Network connectivity check failed. Unable to reach apple.com." >&2
+    echo "Network connectivity check failed: Unable to reach apple.com." >&2
     exit 1
 fi
 
@@ -64,7 +64,7 @@ echo "========= 🖥️ 🤵 Mac Upgrade Chaperone 🤵 🖥️ =========" | tee
 #         Step 1 - Checks          #
 ####################################
 
-## Check the target version, will use default if not specified
+## Use the target version specified by script parametersf, will use default if not specified
 
 targetOS=$5
 
@@ -73,28 +73,41 @@ echo "-- Target version: $targetOS" | tee -a "$log_file"
 if [[ -n $targetOS ]]; then
     echo "Haven't received any Jamf Pro script parameters, so defaulting to latest major version."
     targetOS="macOS Sonoma"
+    echo "-- Target version: $targetOS" | tee -a "$log_file"
 else
-    echo "Target version set by script parameters: $targetOS"
+    echo "Target version set by Jamf Pro script parameters: $targetOS"
 fi
 
 echo "-------------------------" | tee -a "$log_file"
 echo "----- Guiding your journey to... ✨ $targetOS ✨" | tee -a "$log_file"
 echo "Started: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file" 
 echo "-------------------------" | tee -a "$log_file"
+
+## Check MDM enrollment
 echo "⚙️  Checking MDM enrollment..." | tee -a "$log_file"
 
-# Check if there's an MDM profile
+# Check if there's an MDM profile 
+
 mdm_profile=$(profiles status -type enrollment)
 
 if [[ "$mdm_profile" == *"MDM enrollment: Yes"* ]]; then
-  echo "--- ✅ MDM Profile: Installed." | tee -a "$log_file"  
+  echo "--- ✅ MDM Profile: Installed." | tee -a "$log_file"
 fi
  
 if [[ "$mdm_profile" == *"MDM enrollment: No"* ]]; then
   echo "--- ❌ MDM Profile not present. This Mac is NOT managed." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-### add: check expiry on MDM cert
+### add here: check expiry on MDM cert (idea from Mark)
+
+# Check if enrolled in MDM via Automated Device Enrolment
+ade_enrolled=$(profiles status -type enrollment)
+
+if echo "$mdm_status" | grep -q "Enrolled via DEP: Yes"; then
+    echo "--- ✅ This Mac was enrolled via DEP." | tee -a "$log_file"
+else
+    echo "--- ❌ The Mac was not enrolled via DEP."
+fi
 
 # Check if MDM profile is removable
 mdm_profile_removeable=$(profiles -e | grep "IsMDMUnremovable" | awk '{print $3}' | tr -d ';')
@@ -104,7 +117,7 @@ if [[ ${mdm_profile_removeable} = '1' ]]; then
 	
 else
   if [[ ${mdm_profile_removeable} = '0' ]]; then
-    echo "--- ⚠️  MDM Profile is removable." | tee -a "$log_file"
+    echo "--- ❌  MDM Profile is removable." | tee -a "$log_file" | tee -a "$error_log"
   fi
 fi
 
@@ -112,7 +125,7 @@ mdmUrl=$(system_profiler SPConfigurationProfileDataType | awk -F'[/:?]' '/CheckI
 
 echo "--- MDM Server: $mdmUrl"
 
-### Check connection to MDM server
+### Check if we can connect to MDM server
 echo "--- Checking connection to MDM Server..." | tee -a "$log_file" 
 
 mdmServerStatus=$(curl -s -o /dev/null -w "%{http_code}" "$mdmUrl/enrol")
@@ -135,20 +148,20 @@ echo "-------------------------" | tee -a "$log_file"
 echo "🧐 Checking the volumes on disk..." | tee -a "$log_file"
 
 # Check for Macintosh HD volume
-volume_check=$(diskutil list | grep "Macintosh HD")
+vol_check_macintosh_hd=$(diskutil list | grep "Macintosh HD")
 
 if [ -n "$volume_check" ]; then
   echo "--- ✅ Found a volume named 'Macintosh HD'." | tee -a "$log_file"
 else
-  echo "--- ⚠️ 'Macintosh HD' volume not found." | tee -a "$log_file" | tee -a "$error_log"
+  echo "--- ❌ 'Macintosh HD' volume not found." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
 # Check for Recovery volume
-recovery_volume_check=$(diskutil list | grep "Recovery")
+vol_check_recovery=$(diskutil list | grep "Recovery")
 if [ -n "$recovery_volume_check" ]; then
   echo "--- ✅ Found a volume named 'Recovery'." | tee -a "$log_file"
 else
-  echo "--- ⚠️ 'Recovery' volume not found. " | tee -a "$log_file" | tee -a "$error_log"
+  echo "--- ❌ 'Recovery' volume not found. " | tee -a "$log_file" | tee -a "$error_log"
 fi
 
 # Count the number of volumes - normally 8? 
@@ -169,7 +182,7 @@ if [ "$available_space_gb" -ge 20 ]; then
 echo "--- ✅ There is enough free space (20 GB required, $available_space_gb GB available)." | tee -a "$log_file"
 else
 
-echo "--- ❌ There is not enough free space on disk ($available_space_gb GB available, 20 GB required)." | tee -a "$log_file" | tee -a "$error_log"
+echo "--- ❌ There is not enough free space ($available_space_gb GB available, 20 GB required)." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
 # Retrieve hardware info
@@ -256,7 +269,7 @@ echo "-------------------------" | tee -a "$log_file"
 if [[ " ${compatible_models[@]} " =~ " $hardware_modelidentifier " ]]; then
     echo "--- ✅ Compatible with $targetOS" | tee -a "$log_file"
 else
-    echo "--- ❌ This Mac is not compatible with $targetOS. " | tee -a "$log_file" | tee -a "$error_log"
+    echo "--- ❌ This Mac is not compatible with $targetOS." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
 if [ "$(uname -m)" = "arm64" ]; then
@@ -280,6 +293,53 @@ else
   echo "--- ❌ Installed macOS version cannot upgrade straight to $targetOS. (Installed version: $macos_version" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
+echo "Checking macOS upgrade restrictions..." | tee -a "$log_file"
+
+# Check macOS upgrade restrictions in com.apple.applicationaccess
+if sudo defaults read /Library/Managed\ Preferences/com.apple.applicationaccess &>/dev/null; then
+    restrict=$(sudo defaults read /Library/Managed\ Preferences/com.apple.applicationaccess restrict-software-update 2>/dev/null)
+    max_os=$(sudo defaults read /Library/Managed\ Preferences/com.apple.applicationaccess max-os-version 2>/dev/null)
+    
+    if [ "$restrict" == "1" ]; then
+        echo "--- ❌ Software updates are restricted by MDM." | tee -a "$log_file" | tee -a "$error_log"
+    elif [ -n "$max_os" ]; then
+        echo "Maximum allowed macOS version: $max_os" | tee -a "$log_file"
+    else
+        echo "--- ✅ No macOS restrictions found in com.apple.applicationaccess." | tee -a "$log_file"
+    fi
+else
+    echo "No com.apple.applicationaccess MDM profile found." | tee -a "$log_file"
+fi
+
+# Check software update catalog URL
+catalog_url=$(defaults read /Library/Preferences/com.apple.SoftwareUpdate CatalogURL 2>/dev/null)
+
+if [ -z "$catalog_url" ]; then
+    echo "--- ✅ The system is using Apple's default software update catalog." | tee -a "$log_file"
+else
+    echo "Custom software update catalog URL detected: $catalog_url" | tee -a "$log_file" | tee -a "$error_log"
+fi
+
+# Check MDM software update commands
+mdm_logs=$(log show --predicate 'eventMessage contains "MDM"' --info | grep "SoftwareUpdate" 2>/dev/null)
+
+if [ -n "$mdm_logs" ]; then
+    echo "MDM commands related to SoftwareUpdate detected:" 
+    echo "$mdm_logs"
+else
+    echo "--- ✅ No MDM SoftwareUpdate commands detected in the logs." | tee -a "$log_file" | tee -a "$error_log"
+fi
+
+# Check for deferred updates
+deferred_days=$(defaults read /Library/Preferences/com.apple.SoftwareUpdate SoftwareUpdateMajorOSDeferredInstallDelay 2>/dev/null)
+
+if [ -n "$deferred_days" ] && [ "$deferred_days" -gt 0 ]; then
+    echo "Major macOS updates are deferred by $deferred_days days." | tee -a "$log_file" 
+else
+    echo "--- ✅ No deferral policy for macOS updates detected." | tee -a "$log_file"
+fi
+
+
 ####################################
 #      Step 2 - Calculation        #
 ####################################
@@ -294,41 +354,46 @@ echo "-------------------------" | tee -a "$log_file"
 #### Check the error log and based on what we found, recommend an upgrade method with an AppleScript dialog
 
 # Error Groups: 
-# Group A = Not compatible with the target macOS version
-# Group B = Insta-Fail- time to nuke & pave
-# Group C = Can upgrade, but not via MDM command
-# Group D = Compatible but can't upgrade _currently_
-# Group E = Worth noting, but won't prevent upgrading
+# A = Not compatible. End of the road. 
+# B = Nuke & pave
+# C = Upgrade possible, but must be done manually
+# D = Compatible but can't upgrade _at the moment_
+# E = Notable, but won't prevent upgrading
 
 GROUP_A_ERRORS=$(grep -E "Not compatible|not supported" "$ERROR_LOG")
-GROUP_B_ERRORS=$(grep -E "volume not present" "$ERROR_LOG")
-GROUP_C_ERRORS=$(grep -E "This Mac is NOT managed|blahC" "$ERROR_LOG")
+GROUP_B_ERRORS=$(grep -E "volume not present|cannot upgrade straight to $targetOS|MDM Profile is removable" "$ERROR_LOG")
+GROUP_C_ERRORS=$(grep -E "Mac is NOT managed|Bootstrap Token NOT Escrowed" "$ERROR_LOG")
 GROUP_D_ERRORS=$(grep -E "not enough free space on disk" "$ERROR_LOG")
 GROUP_E_ERRORS=$(grep -E "Intel" "$ERROR_LOG")
 
 # Set the message and buttons based on error group
+
 if [ -n "$GROUP_A_ERRORS" ]; then
-    MESSAGE="Group A issues found:\n\n$GROUP_A_ERRORS\n\nNot compatible with target version of macOS ($targetOS)."
+    MESSAGE="Bad news:\n\n$GROUP_A_ERRORS\n\nThis Mac is not compatible with target version of macOS ($targetOS)."
     BUTTON="Compatibility Info..."
     URL="https://support.apple.com/en-au/105113"
+    
 elif [ -n "$GROUP_B_ERRORS" ]; then
-    MESSAGE="Group B issues found:\n\n$GROUP_B_ERRORS\n\nYou will need to erase and re-install macOS, using either Internet Recovery, or Apple Configurator 2."
+    MESSAGE="Bad news:\n\n$GROUP_B_ERRORS\n\nYou will need to erase and re-install macOS, using either Internet Recovery, or Apple Configurator 2. (aka time to nuke and pave)"
     BUTTON="More info…"
     URL="https://support.apple.com/en-au/guide/mac-help/mchl7676b710/15.0/mac/15.0"
+
 elif [ -n "$GROUP_C_ERRORS" ]; then
-    MESSAGE="Group C issues found:\n\n$GROUP_C_ERRORS\n\nThis Mac can be upgraded, but you won't be able to use MDM commands to achieve this. Recommendation: upgrade macOS via System Preferences"
+    MESSAGE="Not-so-great news:\n\n$GROUP_C_ERRORS\n\nThis Mac can be upgraded to $targetOS, but you won't be able to use MDM commands to achieve this. Recommendation: upgrade macOS via System Preferences"
     BUTTON="OK"
+
 elif [ -n "$GROUP_D_ERRORS" ]; then
-    MESSAGE="Group D issues found:\n\n$GROUP_D_ERRORS\n\nNot enough free space on disk."
+    MESSAGE="Uh oh:\n\n$GROUP_D_ERRORS\n\nNot enough free space on disk - you can likely fix this and try again."
     BUTTON="OK"
+
 else
-    MESSAGE="Great news- all checks passed successfully. You can upgrade this Mac via MDM. 🎉 Log into your MDM server ($mdmUrl), read the documentation from Apple + your MDM vendor and go from there."
+    MESSAGE="Great news! All checks passed successfully. 🎉 You can upgrade this Mac via MDM. Log into your MDM server ($mdmUrl), read the documentation from Apple + your MDM vendor and go from there."
     BUTTON="OK"
 fi
 
-echo "======= $MESSAGE ======" | tee -a "$log_file"
+echo "======= MacUpdateChaperone Conclusion: $MESSAGE ======" | tee -a "$log_file"
 
-# Use AppleScript to display notification
+# Display notification using AppleScript
 
 if [ "$BUTTON" != "OK" ]; then
     osascript <<EOF
@@ -339,6 +404,7 @@ tell application "System Events"
     end if
 end tell
 EOF
+
 else
     osascript <<EOF
 tell application "System Events"
@@ -346,7 +412,6 @@ tell application "System Events"
 end tell
 EOF
 fi
-
 
 ####################################
 #       Wrap Up & Farewell         #
