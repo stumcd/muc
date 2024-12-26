@@ -281,52 +281,49 @@ echo "-------------------------" | tee -a "$log_file"
 # Group C = Can upgrade, but not via MDM command
 # Group D = Bit weird, but probably fine
 
-GROUP_A_ERRORS=$(grep -E "not compatible with|can't upgrade to" "$ERROR_LOG")
-
-GROUP_B_ERRORS=$(grep -E "no volume present named 'Macintosh HD|Could not find a 'Recovery' volume" "$ERROR_LOG")
-
-GROUP_C_ERRORS=$(grep -E "Bootstrap Token NOT Escrowed|blahC" "$ERROR_LOG")
-
-GROUP_D_ERRORS=$(grep -E "Bootstrap Token NOT Escrowed|blahC" "$ERROR_LOG")
-
-# Determine which message to show
-if [ -n "$GROUP_A_ERRORS" ] && [ -n "$GROUP_B_ERRORS" ]; then
-    MESSAGE="Both sets of issues were found:\n\nGroup A:\n$GROUP_A_ERRORS\n\nGroup B:\n$GROUP_B_ERRORS\n\nPlease address these issues."
-elif [ -n "$GROUP_A_ERRORS" ]; then
-    MESSAGE="The following Group A issues were found:\n\n$GROUP_A_ERRORS\n\nPlease address these issues."
+# Display message and buttons based on error group
+if [ -n "$GROUP_A_ERRORS" ]; then
+    MESSAGE="Group A issues found:\n\n$GROUP_A_ERRORS\n\nNot compatible with target version of macOS ($targetOS)."
+    BUTTON="Compatibility Info..."
+    URL="https://support.apple.com/en-au/105113"
 elif [ -n "$GROUP_B_ERRORS" ]; then
-    MESSAGE="The following Group B issues were found:\n\n$GROUP_B_ERRORS\n\nPlease address these issues."
+    MESSAGE="Group B issues found:\n\n$GROUP_B_ERRORS\n\nYou will need to erase and re-install macOS, using either Internet Recovery, or Apple Configurator 2."
+    BUTTON="More info…"
+    URL="https://support.apple.com/en-au/guide/mac-help/mchl7676b710/15.0/mac/15.0"
+elif [ -n "$GROUP_C_ERRORS" ]; then
+    MESSAGE="Group C issues found:\n\n$GROUP_C_ERRORS\n\nThis Mac can be upgraded, but you won't be able to use MDM commands to achieve this. Recommendation: upgrade macOS via System Preferences"
+    BUTTON="OK"
+elif [ -n "$GROUP_D_ERRORS" ]; then
+    MESSAGE="Group D issues found:\n\n$GROUP_D_ERRORS\n\nNo major roadblocks, but should be noted."
+    BUTTON="OK"
 else
-    MESSAGE="All checks passed successfully!"
+    MESSAGE="Great news- all checks passed successfully. You can upgrade this Mac via MDM. 🎉 Log into your MDM server ($mdmUrl) and go from there."
+    BUTTON="OK"
 fi
 
 # Display the message using AppleScript
-osascript <<EOF
+if [ "$BUTTON" != "OK" ]; then
+    osascript <<EOF
 tell application "System Events"
-    display dialog "$MESSAGE" buttons {"OK"} default button "OK"
+    set userResponse to display dialog "$MESSAGE" buttons {"$BUTTON"} default button "$BUTTON"
+    if button returned of userResponse is "$BUTTON" then
+        do shell script "open \"$URL\""
+    end if
 end tell
 EOF
-
-
-
-
-
-# Method: Nuke and Pave
-# recnukeandpave=$("Unfortunately, the best option for this Mac is to erase and reinstall macOS, using either Internet Recovery, Bootable USB, or Apple Configurator 2.")
-
-# echo "$recnukeandpave" | tee -a "$log_file"
-	
-# osascript -e "tell application \"System Events\" to display dialog \"$recnukeandpave\n\nIssues detected:\n$error_messages\" buttons {\"Cancel\", \"Show Me How\"} default button \"Show Me How\" with title \"Time to nuke and pave 🎉\"" | grep -q "Show Me How" && open "https://www.apple.com/mac"
-
-# Method: MDM command
-# recommend-mdmCommand="Congratulations, you can upgrade this Mac using an MDM command."
-
-# echo "$success_message" | tee -a "$log_file"
-
-# osascript -e "tell application \"System Events\" to display dialog \"${success_message}\" buttons {\"OK\"} default button \"OK\" with title \"No issues detected 🎉\""
+else
+    osascript <<EOF
+tell application "System Events"
+    display dialog "$MESSAGE" buttons {"$BUTTON"} default button "$BUTTON"
+end tell
+EOF
 fi
 
-#### Wrap up
+
+####################################
+#             Wrap Up              #
+####################################
+
 echo "Best of luck on your upgrade journey! Bon voyage! 👋" | tee -a "$log_file"
 echo "Finished: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file"
 echo "=========================================" | tee -a "$log_file"
