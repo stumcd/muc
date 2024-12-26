@@ -267,8 +267,15 @@ echo "-------------------------" | tee -a "$log_file"
 #### Step 2 - let's guide you to the right path
 #### Check the error log and based on what we found, recommend an upgrade method with an AppleScript dialog
 
-# Check if the error_log file is non-empty
-if [ -s "$error_log" ]; then
+# Process the error log to determine the message
+MESSAGE="Good news - you can upgrade using MDM commands 🎉"
+
+if grep -q "Failed to connect" "$error_log"; then
+    MESSAGE="Cannot connect to MDM server."
+elif grep -q "Required command is not installed" "$ERROR_LOG"; then
+    MESSAGE="The required command is not installed. Please install it and re-run the script."
+fi
+
 
 # Read the contents of the error_log file
 	error_messages=$(cat "$error_log" | sed 's/"/\\"/g')
