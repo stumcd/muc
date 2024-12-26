@@ -14,9 +14,27 @@
 #          Initial Setup           #
 ####################################
 
-## Check if the script is running as sudo
+## Check if running as sudo
 if [ "$(id -u)" -ne 0 ]; then
     echo "Sorry, this script must be run as root. Sudo bang bang!" >&2
+    exit 1
+fi
+
+## Check if the Mac is connected to a network (Wi-Fi or Ethernet)
+network_status=$(networksetup -getnetworkserviceenabled "Wi-Fi" 2>/dev/null || echo "Disabled")
+ethernet_status=$(networksetup -getnetworkserviceenabled "Ethernet" 2>/dev/null || echo "Disabled")
+
+wifi_connected=$(ifconfig en0 | grep "status: active" >/dev/null 2>&1 && echo "Yes" || echo "No")
+ethernet_connected=$(ifconfig en1 | grep "status: active" >/dev/null 2>&1 && echo "Yes" || echo "No")
+
+if [ "$wifi_connected" != "Yes" ] && [ "$ethernet_connected" != "Yes" ]; then
+    echo "No active network connection detected (Wi-Fi or Ethernet) Please connect this Mac to a network and try again." >&2
+    exit 1
+fi
+
+## Check if we can reach Apple
+if ! ping -c 1 apple.com &>/dev/null; then
+    echo "Network connectivity check failed. Unable to reach apple.com." >&2
     exit 1
 fi
 
@@ -40,22 +58,21 @@ log_file="$log_dir/macupgradechaperone_${timestamp}.log"
 ## Write to a new error log file for each run, appended with timestamp
 error_log="$log_dir/macupgradechaperone.error_${timestamp}.log"
 
-
+echo "========= 🖥️ 🤵 Mac Upgrade Chaperone 🤵 🖥️ =========" | tee -a "$log_file"
 
 ####################################
 #         Step 1 - Checks          #
 ####################################
 
-echo "========= 🖥️ 🤵 Mac Upgrade Chaperone 🤵 🖥️ =========" | tee -a "$log_file"
-
 ## Check the target version, will use default if not specified
 
-targetOS=${5:-"macOS Sonoma"}
+targetOS=$5
 
 echo "-- Target version: $targetOS" | tee -a "$log_file"
 
-if [[ $targetOS == "macOS Sonoma" ]]; then
-    echo "Target OS version has not set by Jamf Pro script parameters, so defaulting to latest major version."
+if [[ -n $targetOS ]]; then
+    echo "Haven't received any Jamf Pro script parameters, so defaulting to latest major version."
+    targetOS="macOS Sonoma"
 else
     echo "Target version set by script parameters: $targetOS"
 fi
@@ -67,7 +84,6 @@ echo "-------------------------" | tee -a "$log_file"
 echo "⚙️  Checking MDM enrollment..." | tee -a "$log_file"
 
 # Check if there's an MDM profile
-
 mdm_profile=$(profiles status -type enrollment)
 
 if [[ "$mdm_profile" == *"MDM enrollment: Yes"* ]]; then
@@ -78,6 +94,8 @@ if [[ "$mdm_profile" == *"MDM enrollment: No"* ]]; then
   echo "--- ❌ MDM Profile not present. This Mac is NOT managed." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
+### add: check expiry on MDM cert
+
 # Check if MDM profile is removable
 mdm_profile_removeable=$(profiles -e | grep "IsMDMUnremovable" | awk '{print $3}' | tr -d ';')
 
@@ -85,16 +103,14 @@ if [[ ${mdm_profile_removeable} = '1' ]]; then
 	echo "--- ✅ MDM profile is NOT removable." | tee -a "$log_file"
 	
 else
-	if [[ ${mdm_profile_removeable} = '0' ]]; then
-		echo "--- ⚠️  MDM Profile is removable." | tee -a "$log_file"
-	fi
+  if [[ ${mdm_profile_removeable} = '0' ]]; then
+    echo "--- ⚠️  MDM Profile is removable." | tee -a "$log_file"
+  fi
 fi
 
 mdmUrl=$(system_profiler SPConfigurationProfileDataType | awk -F'[/:?]' '/CheckInURL/ {print $4}')
 
 echo "--- MDM Server: $mdmUrl"
-
-### add: check expiry on MDM cert
 
 ### Check connection to MDM server
 echo "--- Checking connection to MDM Server..." | tee -a "$log_file" 
@@ -114,9 +130,9 @@ else
     echo "--- ❌ Bootstrap Token NOT Escrowed" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-#### Check disk volumes
+#### Checking disk volumes
 echo "-------------------------" | tee -a "$log_file"
-echo "🧐 Checking for unusual disk volumes..." | tee -a "$log_file"
+echo "🧐 Checking the volumes on disk..." | tee -a "$log_file"
 
 # Check for Macintosh HD volume
 volume_check=$(diskutil list | grep "Macintosh HD")
@@ -135,7 +151,7 @@ else
   echo "--- ⚠️ 'Recovery' volume not found. " | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-# Get a list of all volumes using diskutil and count them
+# Count the number of volumes - normally 8? 
 volume_count=$(diskutil list | grep "Apple_HFS\|APFS" | wc -l)
 
 echo "--- Number of volumes: $volume_count" | tee -a "$log_file"
@@ -246,7 +262,7 @@ fi
 if [ "$(uname -m)" = "arm64" ]; then
   echo "--- ✅ Architecture: Apple silicon" | tee -a "$log_file"
 else
-  echo "--- ⚠️ A️rchitecture: Intel️" | tee -a "$log_file"
+  echo "--- ⚠️ A️rchitecture: Intel️" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
 # Check what version of macOS is currently installed
@@ -277,12 +293,12 @@ echo "-------------------------" | tee -a "$log_file"
 
 #### Check the error log and based on what we found, recommend an upgrade method with an AppleScript dialog
 
-# Categorize errors
+# Error Groups: 
 # Group A = Not compatible with the target macOS version
 # Group B = Insta-Fail- time to nuke & pave
 # Group C = Can upgrade, but not via MDM command
-# Group D = Can't currently upgrade, but is compatible
-# Group E = Bit weird, but probably fine
+# Group D = Compatible but can't upgrade _currently_
+# Group E = Worth noting, but won't prevent upgrading
 
 GROUP_A_ERRORS=$(grep -E "Not compatible|not supported" "$ERROR_LOG")
 GROUP_B_ERRORS=$(grep -E "volume not present" "$ERROR_LOG")
@@ -306,10 +322,9 @@ elif [ -n "$GROUP_D_ERRORS" ]; then
     MESSAGE="Group D issues found:\n\n$GROUP_D_ERRORS\n\nNot enough free space on disk."
     BUTTON="OK"
 else
-    MESSAGE="Great news- all checks passed successfully. You can upgrade this Mac via MDM. 🎉 Log into your MDM server ($mdmUrl) and go from there."
+    MESSAGE="Great news- all checks passed successfully. You can upgrade this Mac via MDM. 🎉 Log into your MDM server ($mdmUrl), read the documentation from Apple + your MDM vendor and go from there."
     BUTTON="OK"
 fi
-
 
 echo "======= $MESSAGE ======" | tee -a "$log_file"
 
@@ -338,6 +353,6 @@ fi
 ####################################
 
 echo "Best of luck on your upgrade journey! Bon voyage! 👋" | tee -a "$log_file"
-echo "Finished: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file"
+echo "MacUpdateChaperone finished at: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file"
 echo "=========================================" | tee -a "$log_file"
 exit 0
