@@ -6,10 +6,12 @@
 # Created: 14-09-24
 # -----------------------------------------------------
 # Version: 0.51
-# Date: 05-12-24
+# Date: 26-12-24
 # -----------------------------------------------------
 
-#### Pre-Run Setup & Checks
+####################################
+#     Pre-Run Setup & Checks       #
+####################################
 
 ## Check if the script is running as sudo
 if [ "$(id -u)" -ne 0 ]; then
@@ -41,7 +43,10 @@ error_log="$log_dir/macupgradechaperone.error_${timestamp}.log"
 # Jamf Pro script parameters
 targetOS="$5"
 
-#### Step 1 - let's check out this Mac
+####################################
+#        Step 1 - Evaluation       #
+####################################
+
 echo "========= 🖥️ 🤵 Mac Upgrade Chaperone 🤵 🖥️ =========" | tee -a "$log_file"
 if [[ -n "$targetOS" ]]; then
  	echo "== Jamf Pro Script parameter detected!"
@@ -254,7 +259,7 @@ echo "--- Installed macOS version: $macos_version." | tee -a "$log_file"
 if [ "$major_version" -ge 11 ]; then
   echo "--- ✅ $macos_version can upgrade to $targetOS" | tee -a "$log_file"
 else
-  echo "--- ❌ Installed macOS version ($macos_version) can't upgrade to $targetOS." | tee -a "$log_file" | tee -a "$error_log"
+  echo "--- ❌ Installed macOS version cannot upgrade straight to $targetOS. (Installed version: $macos_version" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
 echo "-------------------------" | tee -a "$log_file"
@@ -264,35 +269,61 @@ echo "Calculating the best upgrade path..." | tee -a "$log_file"
 echo "Reticulating splines..." | tee -a "$log_file"
 echo "-------------------------" | tee -a "$log_file"
 
-#### Step 2 - let's guide you to the right path
+####################################
+#      Step 2 - Calculation        #
+####################################
+
 #### Check the error log and based on what we found, recommend an upgrade method with an AppleScript dialog
 
-# Process the error log to determine the message
-MESSAGE="Good news - you can upgrade using MDM commands 🎉"
+# Categorize errors
+# Group A = Not compatible with the target macOS version
+# Group B = Insta-Fail, need to nuke & pave
+# Group C = Can upgrade, but not via MDM command
+# Group D = Bit weird, but probably fine
 
-if grep -q "Failed to connect" "$error_log"; then
-    MESSAGE="Cannot connect to MDM server."
-elif grep -q "Required command is not installed" "$ERROR_LOG"; then
-    MESSAGE="The required command is not installed. Please install it and re-run the script."
+GROUP_A_ERRORS=$(grep -E "not compatible with|can't upgrade to" "$ERROR_LOG")
+
+GROUP_B_ERRORS=$(grep -E "no volume present named 'Macintosh HD|Could not find a 'Recovery' volume" "$ERROR_LOG")
+
+GROUP_C_ERRORS=$(grep -E "Bootstrap Token NOT Escrowed|blahC" "$ERROR_LOG")
+
+GROUP_D_ERRORS=$(grep -E "Bootstrap Token NOT Escrowed|blahC" "$ERROR_LOG")
+
+# Determine which message to show
+if [ -n "$GROUP_A_ERRORS" ] && [ -n "$GROUP_B_ERRORS" ]; then
+    MESSAGE="Both sets of issues were found:\n\nGroup A:\n$GROUP_A_ERRORS\n\nGroup B:\n$GROUP_B_ERRORS\n\nPlease address these issues."
+elif [ -n "$GROUP_A_ERRORS" ]; then
+    MESSAGE="The following Group A issues were found:\n\n$GROUP_A_ERRORS\n\nPlease address these issues."
+elif [ -n "$GROUP_B_ERRORS" ]; then
+    MESSAGE="The following Group B issues were found:\n\n$GROUP_B_ERRORS\n\nPlease address these issues."
+else
+    MESSAGE="All checks passed successfully!"
 fi
 
+# Display the message using AppleScript
+osascript <<EOF
+tell application "System Events"
+    display dialog "$MESSAGE" buttons {"OK"} default button "OK"
+end tell
+EOF
 
-# Read the contents of the error_log file
-	error_messages=$(cat "$error_log" | sed 's/"/\\"/g')
+
+
+
 
 # Method: Nuke and Pave
-recnukeandpave=$("Unfortunately, the best option for this Mac is to erase and reinstall macOS, using either Internet Recovery, Bootable USB, or Apple Configurator 2.")
+# recnukeandpave=$("Unfortunately, the best option for this Mac is to erase and reinstall macOS, using either Internet Recovery, Bootable USB, or Apple Configurator 2.")
 
-echo "$recnukeandpave" | tee -a "$log_file"
+# echo "$recnukeandpave" | tee -a "$log_file"
 	
-osascript -e "tell application \"System Events\" to display dialog \"$recnukeandpave\n\nIssues detected:\n$error_messages\" buttons {\"Cancel\", \"Show Me How\"} default button \"Show Me How\" with title \"Time to nuke and pave 🎉\"" | grep -q "Show Me How" && open "https://www.apple.com/mac"
+# osascript -e "tell application \"System Events\" to display dialog \"$recnukeandpave\n\nIssues detected:\n$error_messages\" buttons {\"Cancel\", \"Show Me How\"} default button \"Show Me How\" with title \"Time to nuke and pave 🎉\"" | grep -q "Show Me How" && open "https://www.apple.com/mac"
 
 # Method: MDM command
-recommend-mdmCommand="Congratulations, you can upgrade this Mac using an MDM command."
+# recommend-mdmCommand="Congratulations, you can upgrade this Mac using an MDM command."
 
-echo "$success_message" | tee -a "$log_file"
+# echo "$success_message" | tee -a "$log_file"
 
-osascript -e "tell application \"System Events\" to display dialog \"${success_message}\" buttons {\"OK\"} default button \"OK\" with title \"No issues detected 🎉\""
+# osascript -e "tell application \"System Events\" to display dialog \"${success_message}\" buttons {\"OK\"} default button \"OK\" with title \"No issues detected 🎉\""
 fi
 
 #### Wrap up
