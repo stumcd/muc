@@ -71,9 +71,9 @@ echo "========= 🖥️ 🤵 Mac Upgrade Chaperone 🤵 🖥️ =========" | tee
 echo "-- Target version: $targetOS" | tee -a "$log_file"
 
 if [[ -n $targetOS ]]; then
-    echo "Haven't received any Jamf Pro script parameters, so defaulting to latest major version."
+    echo "Haven't received any Jamf Pro script parameters, so defaulting to macOS Sonoma."
     targetOS="macOS Sonoma"
-    echo "-- Target version: $targetOS" | tee -a "$log_file"
+    echo "-- Target version set to: $targetOS" | tee -a "$log_file"
 else
     echo "Target version set by Jamf Pro script parameters: $targetOS"
 fi
@@ -83,7 +83,7 @@ echo "----- Guiding your journey to... ✨ $targetOS ✨" | tee -a "$log_file"
 echo "Started: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file" 
 echo "-------------------------" | tee -a "$log_file"
 
-### Check for management
+### Check if Mac is being managed 
 
 # Check for an MDM profile 
 echo "⚙️  Checking MDM enrollment..." | tee -a "$log_file"
@@ -126,7 +126,6 @@ else
   fi
 fi
 
-
 # Check if enrolled via Automated Device Enrolment
 ade_enrolled=$(profiles status -type enrollment)
 
@@ -157,7 +156,7 @@ fi
 
 # Check if there are any MDM restrictions in place that would prevent upgrading 
 
-echo "Checking macOS upgrade restrictions..." | tee -a "$log_file"
+echo "Checking for any macOS upgrade restrictions..." | tee -a "$log_file"
 
 # Check macOS upgrade restrictions in com.apple.applicationaccess
 if sudo defaults read /Library/Managed\ Preferences/com.apple.applicationaccess &>/dev/null; then
@@ -211,7 +210,6 @@ echo "🌲 Reticulating splines..." | tee -a "$log_file"
 echo "-------------------------" | tee -a "$log_file"
 
 ######## Checking disk volumes
-
 echo "-------------------------" | tee -a "$log_file"
 echo "🧐 Checking the volumes on disk..." | tee -a "$log_file"
 
@@ -254,9 +252,7 @@ else
 echo "--- ❌ There is not enough free space ($available_space_gb GB available, 20 GB required)." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-######## Check Mac hardware
-
-# Retrieve system info
+######## Checking Mac hardware
 hardware_serial=$(system_profiler SPHardwareDataType | awk -F ": " '/Serial Number/ {print $2}')
 hardware_name=$(system_profiler SPHardwareDataType | awk -F ": " '/Model Name/ {print $2}')
 hardware_modelidentifier=$(system_profiler SPHardwareDataType | awk '/Model Identifier/ {print $3}')
@@ -361,7 +357,7 @@ echo "--- Installed macOS version: $macos_version." | tee -a "$log_file"
 if [ "$major_version" -ge 11 ]; then
   echo "--- ✅ $macos_version can upgrade to $targetOS" | tee -a "$log_file"
 else
-  echo "--- ❌ Installed macOS version cannot upgrade straight to $targetOS. (Installed version: $macos_version" | tee -a "$log_file" | tee -a "$error_log"
+  echo "--- ❌ macOS Big Sur and earlier versions cannot upgrade straight to $targetOS. (Installed version: $macos_version" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
 
@@ -376,14 +372,14 @@ fi
 # Group A = Not compatible. End of the road. 
 GROUP_A_ERRORS=$(grep -E "Not compatible|not supported" "$ERROR_LOG")
 
-# Group B = Nuke & pave
-GROUP_B_ERRORS=$(grep -E "volume not present|cannot upgrade straight to $targetOS|MDM Profile is removable|not enrolled via DEP" "$ERROR_LOG")
+# Group B = Nuke & pave needed
+GROUP_B_ERRORS=$(grep -E "volumes are missing|cannot upgrade straight to $targetOS|MDM Profile is removable|not enrolled via DEP" "$ERROR_LOG")
 
-# Group C = Upgrade possible, but must be done manually
+# Group C = Upgrade possible, but can't be achived with MDM commands- must be done manually 
 GROUP_C_ERRORS=$(grep -E "Mac is NOT managed|Bootstrap Token NOT Escrowed" "$ERROR_LOG")
 
 # Group D = Compatible but can't upgrade _at the moment_
-GROUP_D_ERRORS=$(grep -E "not enough free space on disk" "$ERROR_LOG")
+GROUP_D_ERRORS=$(grep -E "not enough free space on disk|Software updates are restricted|Custom software update catalog URL|macOS updates are deferred" "$ERROR_LOG")
 
 # Group E = Notable, but won't prevent upgrading
 GROUP_E_ERRORS=$(grep -E "Intel" "$ERROR_LOG")
@@ -405,7 +401,7 @@ elif [ -n "$GROUP_C_ERRORS" ]; then
     BUTTON="OK"
 
 elif [ -n "$GROUP_D_ERRORS" ]; then
-    MESSAGE="Uh oh:\n\n$GROUP_D_ERRORS\n\nNot enough free space on disk - you can likely fix this and try again."
+    MESSAGE="Uh oh:\n\n$GROUP_D_ERRORS\n\nHave a look at the above issues. Rectify these and try again. Or, just nuke and pave."
     BUTTON="OK"
 
 else
@@ -415,7 +411,7 @@ fi
 
 echo "======= MacUpdateChaperone Conclusion: $MESSAGE ======" | tee -a "$log_file"
 
-# Display notification using AppleScript
+# Display AppleScript dialogk
 
 if [ "$BUTTON" != "OK" ]; then
     osascript <<EOF
