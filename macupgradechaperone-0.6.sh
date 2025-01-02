@@ -6,41 +6,19 @@
 # Author: Stu McDonald
 # Created: 14-09-24
 # -----------------------------------------------------
-# Version: 0.51
-# Date: 26-12-24
+# Version: 0.6
+# Modified: 02-01-25
 # -----------------------------------------------------
 
 ####################################
 #          Initial Setup           #
 ####################################
 
-## Check if running as sudo
+## Check if script has been run as root
 if [ "$(id -u)" -ne 0 ]; then
     echo "Sorry, this script must be run as root. Sudo bang bang!" >&2
     exit 1
 fi
-
-## Check if the Mac is connected to a network (Wi-Fi or Ethernet)
-network_status=$(networksetup -getnetworkserviceenabled "Wi-Fi" 2>/dev/null || echo "Disabled")
-ethernet_status=$(networksetup -getnetworkserviceenabled "Ethernet" 2>/dev/null || echo "Disabled")
-
-wifi_connected=$(ifconfig en0 | grep "status: active" >/dev/null 2>&1 && echo "Yes" || echo "No")
-ethernet_connected=$(ifconfig en1 | grep "status: active" >/dev/null 2>&1 && echo "Yes" || echo "No")
-
-if [ "$wifi_connected" != "Yes" ] && [ "$ethernet_connected" != "Yes" ]; then
-    echo "No active network connection detected (Wi-Fi or Ethernet) Please connect this Mac to a network and try again." >&2
-    exit 1
-fi
-
-## Check if we can reach Apple
-if ! ping -c 1 apple.com &>/dev/null; then
-    echo "Network connectivity check failed: Unable to reach apple.com." >&2
-    exit 1
-fi
-
-# Get the current timestamp (format: YYYYMMDD_HHMMSS)
-timestamp=$(date +"%Y%m%d_%H%M%S")
-#echo "$timestamp" | tee -a "$log_file"
 
 ## Define the directory for the log file and error log
 log_dir="/usr/local/muc"
@@ -52,40 +30,89 @@ if [ ! -d "$log_dir" ]; then
   sudo chown $(whoami) "$log_dir"  # Ensure the current user has ownership
 fi
 
+# Get the current timestamp (format: YYYYMMDD_HHMMSS)
+timestamp=$(date +"%Y%m%d_%H%M%S")
+#echo "$timestamp" | tee -a "$log_file"
+
 ## Write to a new log file for each run, appended with timestamp
 log_file="$log_dir/macupgradechaperone_${timestamp}.log"
 
 ## Write to a new error log file for each run, appended with timestamp
 error_log="$log_dir/macupgradechaperone.error_${timestamp}.log"
 
+## Future plans:
+## - If macOS re-install needed, download installer from Apple using mist-cli 
+## - If not already installed, install mist-cli from GitHub
+
+
 echo "========= 🖥️ 🤵 Mac Upgrade Chaperone 🤵 🖥️ =========" | tee -a "$log_file"
 
 ####################################
-#         Step 1 - Checks          #
+##         Step 1 - Checks        ##
 ####################################
 
-## Use the target version specified by script parametersf, will use default if not specified
+
+## Use the target version specified by script parameters, will use default if not specified
 
 #targetOS=$5
 
 echo "-- Target version: $targetOS" | tee -a "$log_file"
 
 if [[ -n $targetOS ]]; then
-    echo "Haven't received any Jamf Pro script parameters, so defaulting to macOS Sonoma."
+    echo "[INFO] No Jamf Pro script parameters were detected, so falling back to defaults."
     targetOS="macOS Sonoma"
     echo "-- Target version set to: $targetOS" | tee -a "$log_file"
 else
     echo "Target version set by Jamf Pro script parameters: $targetOS"
 fi
 
+## Check if the Mac is connected to a network (Wi-Fi or Ethernet)
+network_status=$(networksetup -getnetworkserviceenabled "Wi-Fi" 2>/dev/null || echo "Disabled")
+ethernet_status=$(networksetup -getnetworkserviceenabled "Ethernet" 2>/dev/null || echo "Disabled")
+
+wifi_connected=$(ifconfig en0 | grep "status: active" >/dev/null 2>&1 && echo "Yes" || echo "No")
+ethernet_connected=$(ifconfig en1 | grep "status: active" >/dev/null 2>&1 && echo "Yes" || echo "No")
+
+if [ "$wifi_connected" != "Yes" ] && [ "$ethernet_connected" != "Yes" ]; then
+    echo "--- ❌ No active network connection found (Wi-Fi or Ethernet)." | tee -a "$log_file" | tee -a "$error_log"
+    echo "-- Wi-Fi network status: $network_status" | tee -a "$log_file" | tee -a "$error_log"
+    echo "-- Ethernet network status: $ethernet_status" | tee -a "$log_file" | tee -a "$error_log"
+    echo "-- Wi-Fi connected: $wifi_connected" | tee -a "$log_file" | tee -a "$error_log"
+    echo "-- Ethernet connected: $ethernet_connected" | tee -a "$log_file" | tee -a "$error_log"
+    
+# AppleScript dialog: Exit code 1
+    osascript -e 'display dialog "Unfortunately, there is no network connection and many of our checks require connectivity. Please connect this Mac to a network (using Wi-Fi or Ethernet) and run this script again." buttons {"OK"} default button "OK" with icon stop'
+    exit 1
+    
+else
+    echo "--- ✅ Network connection available." | tee -a "$log_file"
+    echo "-- Wi-Fi network status: $network_status" | tee -a "$log_file"
+    echo "-- Ethernet network status: $ethernet_status" | tee -a "$log_file"
+    echo "-- Wi-Fi connected: $wifi_connected" | tee -a "$log_file"
+    echo "-- Ethernet connected: $ethernet_connected" | tee -a "$log_file"
+fi
+
+# Check we can use nc to connect to apple.com on port 443
+nc -z -w 5 apple.com 443 >/dev/null 2>&1
+nc_apple=$?
+
+if [ "$nc_apple" -ne 0 ]; then
+    echo "--- ❌ Unable to connect to apple.com on port 443. Port check failed." | tee -a "$log_file" | tee -a "$error_log"
+    osascript -e 'display dialog "Unable to connect to apple.com on port 443. Please check your internet connection and try again." buttons {"OK"} default button "OK" with icon caution'
+    exit 1
+else
+    echo "--- ✅ Successfully connected to apple.com on port 443. Port check passed." | tee -a "$log_file"
+fi
+
+
 echo "-------------------------" | tee -a "$log_file"
 echo "----- Guiding your journey to... ✨ $targetOS ✨" | tee -a "$log_file"
 echo "Started: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file" 
 echo "-------------------------" | tee -a "$log_file"
 
-### Check if Mac is being managed 
+### Check if Mac is managed 
 
-# Check for an MDM profile 
+# Check if there's an MDM profile installed 
 echo "⚙️  Checking MDM enrollment..." | tee -a "$log_file"
 
 mdm_profile=$(profiles status -type enrollment)
@@ -111,6 +138,7 @@ else
         echo "--- ❌ The MDM profile has expired." | tee -a "$log_file" | tee -a "$error_log"
     else
         echo "--- ✅ The MDM profile has not expired." | tee -a "$log_file"
+        echo "--- MDM Profile expiry date: $mdm_profile_expiry" | tee -a "$log_file"
     fi
 fi
 
@@ -174,7 +202,26 @@ else
     echo "No com.apple.applicationaccess MDM profile found." | tee -a "$log_file"
 fi
 
-# Check software update catalog URL
+# Check for deferred updates
+deferred_days=$(defaults read /Library/Preferences/com.apple.SoftwareUpdate SoftwareUpdateMajorOSDeferredInstallDelay 2>/dev/null)
+
+if [ -n "$deferred_days" ] && [ "$deferred_days" -gt 0 ]; then
+    echo "--- ❌ Major macOS updates are deferred by $deferred_days days." | tee -a "$log_file" | tee -a "$error_log" 
+else
+    echo "--- ✅ No deferral policy for macOS updates detected." | tee -a "$log_file"
+fi
+
+# Check MDM software update commands
+mdm_logs=$(log show --predicate 'eventMessage contains "MDM"' --info | grep "SoftwareUpdate" 2>/dev/null)
+
+if [ -n "$mdm_logs" ]; then
+    echo "--- ❌ MDM commands related to SoftwareUpdate detected:" | tee -a "$log_file" | tee -a "$error_log"
+    echo "------ $mdm_logs" | tee -a "$log_file" | tee -a "$error_log"
+else
+    echo "--- ✅ No MDM SoftwareUpdate commands detected in the logs." | tee -a "$log_file"
+fi
+
+# Check for custom Software Update Catalog URL
 catalog_url=$(defaults read /Library/Preferences/com.apple.SoftwareUpdate CatalogURL 2>/dev/null)
 
 if [ -z "$catalog_url" ]; then
@@ -183,23 +230,27 @@ else
     echo "--- ❌ Custom software update catalog URL detected: $catalog_url" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-# Check MDM software update commands
-mdm_logs=$(log show --predicate 'eventMessage contains "MDM"' --info | grep "SoftwareUpdate" 2>/dev/null)
 
-if [ -n "$mdm_logs" ]; then
-    echo "--- ❌ MDM commands related to SoftwareUpdate detected:" 
-    echo "------ $mdm_logs"
+#### Check if macOS installer is already on disk 
+
+# macOS installer path
+INSTALLER_PATH="/Applications/Install $targetOS.app"
+
+# startosinstall path
+BINARY_PATH="$INSTALLER_PATH/Contents/Resources/startosinstall"
+
+# Check if the installer exists
+if [ -d "$INSTALLER_PATH" ]; then
+  echo "✅ $targetOS installer found at '$INSTALLER_PATH'." | tee -a "$log_file"
+
+  # Check if the startosinstall binary exists
+  if [ -f "$BINARY_PATH" ]; then
+    echo "✅ The 'startosinstall' binary is present." | tee -a "$log_file"
+  else
+    echo "❌ The 'startosinstall' binary is missing." | tee -a "$log_file" | tee -a "$error_log"
+  fi
 else
-    echo "--- ✅ No MDM SoftwareUpdate commands detected in the logs." | tee -a "$log_file" | tee -a "$error_log"
-fi
-
-# Check for deferred updates
-deferred_days=$(defaults read /Library/Preferences/com.apple.SoftwareUpdate SoftwareUpdateMajorOSDeferredInstallDelay 2>/dev/null)
-
-if [ -n "$deferred_days" ] && [ "$deferred_days" -gt 0 ]; then
-    echo "--- ❌ Major macOS updates are deferred by $deferred_days days." | tee -a "$log_file" 
-else
-    echo "--- ✅ No deferral policy for macOS updates detected." | tee -a "$log_file"
+  echo "❌ $targetOS installer is not found at '$INSTALLER_PATH'." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
 echo "-------------------------" | tee -a "$log_file"
@@ -270,69 +321,63 @@ echo "- Processor Name: $processor_name" | tee -a "$log_file"
 
 #### Check compatibility
 echo "-------------------------" | tee -a "$log_file"
-# Define an array of compatible models
-compatible_models=(
-  "MacBookAir8,1"  # MacBook Air (2018)
-  "MacBookAir9,1"  # MacBook Air (2019)
-  "MacBookAir10,1" # MacBook Air (M1, 2020)
-  "MacBookAir14,2" # MacBook Air (M2, 2022)
-  "MacBookAir14,15" # MacBook Air (M2, 2022, 15-inch)
 
-  "MacBookPro15,1" # MacBook Pro (2018, 13-inch)
-  "MacBookPro15,2" # MacBook Pro (2018, 15-inch)
-  "MacBookPro15,3" # MacBook Pro (2019, 13-inch)
-  "MacBookPro15,4" # MacBook Pro (2019, 15-inch)
-  "MacBookPro16,1" # MacBook Pro (2020, 13-inch)
-  "MacBookPro16,2" # MacBook Pro (2020, 13-inch)
-  "MacBookPro16,3" # MacBook Pro (2020, 16-inch)
-  "MacBookPro17,1" # MacBook Pro (M1, 2020, 13-inch)
-  "MacBookPro18,1" # MacBook Pro (M1 Pro, 2021, 14-inch)
-  "MacBookPro18,2" # MacBook Pro (M1 Pro, 2021, 16-inch)
-  "MacBookPro18,3" # MacBook Pro (M1 Max, 2021, 14-inch)
-  "MacBookPro18,4" # MacBook Pro (M1 Max, 2021, 16-inch)
-  "MacBookPro15,6" # MacBook Pro (2019, 16-inch)
+compatible_models=(
+  "MacBookAir8,1"  # MacBook Air (Retina, 13-inch, 2018)
+  "MacBookAir9,1"  # MacBook Air (Retina, 13-inch, 2019)
+  "MacBookAir10,1" # MacBook Air (M1, 2020)
+  "MacBookAir14,2" # MacBook Air (13-inch, M2, 2022)
+  "MacBookAir14,15" # MacBook Air (15-inch, M2, 2023)
+
+  "MacBookPro15,1" # MacBook Pro (15-inch, 2018)
+  "MacBookPro15,2" # MacBook Pro (13-inch, 2018)
+  "MacBookPro15,3" # MacBook Pro (15-inch, 2019)
+  "MacBookPro15,4" # MacBook Pro (13-inch, 2019)
+  "MacBookPro16,1" # MacBook Pro (16-inch, 2019)
+  "MacBookPro16,2" # MacBook Pro (13-inch, 2020)
+  "MacBookPro16,4" # MacBook Pro (16-inch, 2020)
+  "MacBookPro17,1" # MacBook Pro (13-inch, M1, 2020)
+  "MacBookPro18,1" # MacBook Pro (16-inch, M1 Pro/Max, 2021)
+  "MacBookPro18,3" # MacBook Pro (14-inch, M1 Pro/Max, 2021)
+  "MacBookPro15,13" # MacBook Pro (14-inch, M3, Nov 2023)
+  "MacBookPro15,14" # MacBook Pro (16-inch, M3, Nov 2023)
+  "MacBookPro16,7" # MacBook Pro (16-inch, M2, 2023)
+  "MacBookPro15,6" # MacBook Pro (14-inch, M2 Pro, 2023)
+  "MacBookPro15,7" # MacBook Pro (16-inch, M2 Pro, 2023)
+  "MacBookPro15,8" # MacBook Pro (14-inch, M2 Max, 2023)
+  "MacBookPro15,10" # MacBook Pro (16-inch, M2 Max, 2023)
+  "MacBookPro15,11" # MacBook Pro (14-inch, M3, 2024)
+  "MacBookPro15,9"  # MacBook Pro (16-inch, M3, 2024)
+  "MacBookPro16,1" # MacBook Pro (13-inch, M2, 2024)
+  "MacBookPro16,5" # MacBook Pro (14-inch, M2, 2024)
+  "MacBookPro16,6" # MacBook Pro (16-inch, M2, 2024)
+  "MacBookPro16,8" # MacBook Pro (M3, 2024)
 
   "Macmini8,1"     # Mac mini (2018)
   "Macmini9,1"     # Mac mini (M1, 2020)
+  "Macmini10,1"    # Mac mini (M2, 2023)
 
-  "Mac14,3"        # Mac Studio (M1 Max, 2022)
-  "Mac14,12"       # Mac Studio (M1 Ultra, 2022)
-
-  "iMac19,1"       # iMac (2019, 21.5-inch)
-  "iMac19,2"       # iMac (2019, 27-inch)
-  "iMac20,1"       # iMac (2020, 21.5-inch)
-  "iMac20,2"       # iMac (2020, 27-inch)
-  "iMac21,1"       # iMac (M1, 2021, 24-inch)
-  "iMac21,2"       # iMac (M1, 2021, 24-inch)
+  "iMac19,1"       # iMac (Retina 5K, 27-inch, 2019)
+  "iMac19,2"       # iMac (Retina 4K, 21.5-inch, 2019)
+  "iMac20,1"       # iMac (Retina 5K, 27-inch, 2020)
+  "iMac21,1"       # iMac (24-inch, M1, 2021)
 
   "iMacPro1,1"     # iMac Pro (2017)
 
   "MacPro7,1"      # Mac Pro (2019)
-  "Mac14,8"        # Mac Pro (2022)
+  "MacPro8,1"      # Mac Pro (M2 Ultra, 2023)
 
-  "MacStudio1,1"   # Mac Studio (2022)
-  "MacStudio1,2"   # Mac Studio (2022)
-  "Mac13,1"        # Mac Studio (M1 Max, 2022)
-  "Mac13,2"        # Mac Studio (M1 Ultra, 2022)
+  "Mac14,3"        # Mac Studio (M1 Max, 2022)
+  "Mac14,12"       # Mac Studio (M1 Ultra, 2022)
   "Mac14,13"       # Mac Studio (M2 Max, 2023)
   "Mac14,14"       # Mac Studio (M2 Ultra, 2023)
-  "Mac14,7"        # Mac Studio (M2, 2023)
-  "Mac14,9"        # Mac Studio (M2, 2023)
-  
-  "Mac14,5"        # MacBook Air (M2, 2022)
-  "Mac14,10"       # MacBook Pro (M2, 2023)
-  "Mac14,6"        # MacBook Pro (M2 Pro, 2023)
-  "Mac15,3"        # MacBook Pro (M2 Pro, 2023, 14-inch)
-  "Mac15,6"        # MacBook Pro (M2 Pro, 2023, 16-inch)
-  "Mac15,10"       # MacBook Pro (M2 Max, 2023, 14-inch)
-  "Mac15,8"        # MacBook Pro (M2 Max, 2023, 16-inch)
-  "Mac15,7"        # MacBook Pro (M2, 2023)
-  "Mac15,11"       # MacBook Pro (M2, 2023)
-  "Mac15,9"        # MacBook Pro (M2, 2023)
+
 )
+
 
 # Check if the hardware model is in the list of compatible models
 echo "-------------------------" | tee -a "$log_file"
+
 if [[ " ${compatible_models[@]} " =~ " $hardware_modelidentifier " ]]; then
     echo "--- ✅ Compatible with $targetOS" | tee -a "$log_file"
 else
@@ -411,7 +456,7 @@ fi
 
 echo "======= MacUpdateChaperone Conclusion: $MESSAGE ======" | tee -a "$log_file"
 
-# Display AppleScript dialogk
+# Display AppleScript dialog
 
 if [ "$BUTTON" != "OK" ]; then
     osascript <<EOF
