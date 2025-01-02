@@ -11,11 +11,12 @@ Note:
 2. Will this script *determine what's possible and let you know?* **Yes.**
 3. Is this still a work-in-progress? *Yes!*
 
-[MUC v0.51](https://raw.githubusercontent.com/stumcd/muc/refs/heads/main/macupgradechaperone-0.51.sh)
+[Link to script:](https://github.com/stumcd/muc/blob/92c9c35fbac19e1376353805e50b8404f70e0932/macupgradechaperone-0.6.sh)
 
 ### Example screenshots
-'Detected issues' log file:
+Log:
+![muc - log](https://github.com/user-attachments/assets/c3b628d5-cac2-4093-9384-28690cd74855)
+
+Error log:
 ![muc - error_log](https://github.com/user-attachments/assets/204996b2-727e-409f-9b06-d6700618d9bd)
 
-Log created on disk:
-![muc - log](https://github.com/user-attachments/assets/c3b628d5-cac2-4093-9384-28690cd74855)

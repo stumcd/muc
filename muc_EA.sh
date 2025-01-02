@@ -1,5 +1,16 @@
 #!/bin/bash
 
+# -----------------------------------------------------
+# Name: muc_EA.sh
+# Description: Jamf Pro Extension Attribute to display results from MacUpgradeChaperone in your device inventory
+# Author: Stu McDonald
+# Created: 14-09-24
+# -----------------------------------------------------
+# Version: 0.6
+# Modified: 02-01-25
+# -----------------------------------------------------
+
+
 # Define the directory where the log files are located
 LOG_DIR="/usr/local/muc"
 
