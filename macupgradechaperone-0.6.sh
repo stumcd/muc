@@ -10,9 +10,11 @@
 # Modified: 02-01-25
 # -----------------------------------------------------
 
+
 ####################################
-#          Initial Setup           #
+#               Config             #
 ####################################
+
 
 ## Check if script has been run as root
 if [ "$(id -u)" -ne 0 ]; then
@@ -45,30 +47,32 @@ error_log="$log_dir/macupgradechaperone.error_${timestamp}.log"
 ## - If not already installed, install mist-cli from GitHub
 
 
-echo "========= 🖥️ 🤵 Mac Upgrade Chaperone 🤵 🖥️ =========" | tee -a "$log_file"
+
+
 
 ####################################
 ##         Step 1 - Checks        ##
 ####################################
 
+echo "========= 🖥️ 🤵 Mac Upgrade Chaperone 🤵 🖥️ =========" | tee -a "$log_file"
 
 ## Use the target version specified by script parameters, will use default if not specified
 
-#targetOS=$5
+targetOS=$5
 
 echo "-- Target version: $targetOS" | tee -a "$log_file"
 
 if [[ -n $targetOS ]]; then
-    echo "[INFO] No Jamf Pro script parameters were detected, so falling back to defaults."
+    echo " --- No Jamf Pro script parameters were detected, so falling back to defaults." | tee -a "$log_file"
     targetOS="macOS Sonoma"
     echo "-- Target version set to: $targetOS" | tee -a "$log_file"
 else
-    echo "Target version set by Jamf Pro script parameters: $targetOS"
+    echo "Target version set by Jamf Pro script parameters: $targetOS" | tee -a "$log_file"
 fi
 
 ## Check if the Mac is connected to a network (Wi-Fi or Ethernet)
-network_status=$(networksetup -getnetworkserviceenabled "Wi-Fi" 2>/dev/null || echo "Disabled")
-ethernet_status=$(networksetup -getnetworkserviceenabled "Ethernet" 2>/dev/null || echo "Disabled")
+wifi_nic=$(networksetup -getnetworkserviceenabled "Wi-Fi" 2>/dev/null || echo "Disabled")
+ethernet_nic=$(networksetup -getnetworkserviceenabled "Ethernet" 2>/dev/null || echo "Disabled")
 
 wifi_connected=$(ifconfig en0 | grep "status: active" >/dev/null 2>&1 && echo "Yes" || echo "No")
 ethernet_connected=$(ifconfig en1 | grep "status: active" >/dev/null 2>&1 && echo "Yes" || echo "No")
@@ -80,9 +84,18 @@ if [ "$wifi_connected" != "Yes" ] && [ "$ethernet_connected" != "Yes" ]; then
     echo "-- Wi-Fi connected: $wifi_connected" | tee -a "$log_file" | tee -a "$error_log"
     echo "-- Ethernet connected: $ethernet_connected" | tee -a "$log_file" | tee -a "$error_log"
     
-# AppleScript dialog: Exit code 1
-    osascript -e 'display dialog "Unfortunately, there is no network connection and many of our checks require connectivity. Please connect this Mac to a network (using Wi-Fi or Ethernet) and run this script again." buttons {"OK"} default button "OK" with icon stop'
-    exit 1
+while true; do
+    response=$(osascript -e 'display dialog "Unfortunately, there is no network connection and many of our checks require connectivity. Please connect this Mac to a network (using Wi-Fi or Ethernet) and run this script again." buttons {"Quit", "Retry"} default button "Retry" with icon stop')
+
+    if [[ "$response" == "button returned:Quit" ]]; then
+        echo "Network connnection not detected." | tee -a "$log_file" 
+        echo "User chose to quit." | tee -a "$log_file" 
+        exit 1
+    elif [[ "$response" == "button returned:Retry" ]]; then
+        echo "Network connnection not detected." | tee -a "$log_file"         
+        echo "User chose to retry. Restarting the script... " | tee -a "$log_file" 
+    fi
+done
     
 else
     echo "--- ✅ Network connection available." | tee -a "$log_file"
@@ -92,13 +105,13 @@ else
     echo "-- Ethernet connected: $ethernet_connected" | tee -a "$log_file"
 fi
 
-# Check we can use nc to connect to apple.com on port 443
+# Last network check - can we Netcat apple.com:443
 nc -z -w 5 apple.com 443 >/dev/null 2>&1
 nc_apple=$?
 
 if [ "$nc_apple" -ne 0 ]; then
     echo "--- ❌ Unable to connect to apple.com on port 443. Port check failed." | tee -a "$log_file" | tee -a "$error_log"
-    osascript -e 'display dialog "Unable to connect to apple.com on port 443. Please check your internet connection and try again." buttons {"OK"} default button "OK" with icon caution'
+    osascript -e 'display dialog "Unable to connect to apple.com on port 443, even though the Mac *is* connected to a network. There might be a misconfigured firewall rule blocking this, or maybe the Mac is not properly authenticated on the network." buttons {"Quit"} default button "Quit" with icon stop'
     exit 1
 else
     echo "--- ✅ Successfully connected to apple.com on port 443. Port check passed." | tee -a "$log_file"
@@ -183,7 +196,6 @@ else
 fi
 
 # Check if there are any MDM restrictions in place that would prevent upgrading 
-
 echo "Checking for any macOS upgrade restrictions..." | tee -a "$log_file"
 
 # Check macOS upgrade restrictions in com.apple.applicationaccess
@@ -230,28 +242,6 @@ else
     echo "--- ❌ Custom software update catalog URL detected: $catalog_url" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-
-#### Check if macOS installer is already on disk 
-
-# macOS installer path
-INSTALLER_PATH="/Applications/Install $targetOS.app"
-
-# startosinstall path
-BINARY_PATH="$INSTALLER_PATH/Contents/Resources/startosinstall"
-
-# Check if the installer exists
-if [ -d "$INSTALLER_PATH" ]; then
-  echo "✅ $targetOS installer found at '$INSTALLER_PATH'." | tee -a "$log_file"
-
-  # Check if the startosinstall binary exists
-  if [ -f "$BINARY_PATH" ]; then
-    echo "✅ The 'startosinstall' binary is present." | tee -a "$log_file"
-  else
-    echo "❌ The 'startosinstall' binary is missing." | tee -a "$log_file" | tee -a "$error_log"
-  fi
-else
-  echo "❌ $targetOS installer is not found at '$INSTALLER_PATH'." | tee -a "$log_file" | tee -a "$error_log"
-fi
 
 echo "-------------------------" | tee -a "$log_file"
 echo "Evaluation complete." | tee -a "$log_file"
@@ -405,6 +395,28 @@ else
   echo "--- ❌ macOS Big Sur and earlier versions cannot upgrade straight to $targetOS. (Installed version: $macos_version" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
+#### Check if macOS installer is already on disk 
+
+# macOS installer path
+INSTALLER_PATH="/Applications/Install $targetOS.app"
+
+# startosinstall path
+BINARY_PATH="$INSTALLER_PATH/Contents/Resources/startosinstall"
+
+# Check if the installer exists
+if [ -d "$INSTALLER_PATH" ]; then
+  echo "✅ $targetOS installer found at '$INSTALLER_PATH'." | tee -a "$log_file"
+
+  # Check if the startosinstall binary exists
+  if [ -f "$BINARY_PATH" ]; then
+    echo "✅ The 'startosinstall' binary is available." | tee -a "$log_file"
+  else
+    echo "❌ The 'startosinstall' binary is missing." | tee -a "$log_file" | tee -a "$error_log"
+  fi
+else
+  echo "❌ $targetOS installer is not found at '$INSTALLER_PATH'." | tee -a "$log_file" | tee -a "$error_log"
+fi
+
 
 
 ####################################
@@ -450,11 +462,11 @@ elif [ -n "$GROUP_D_ERRORS" ]; then
     BUTTON="OK"
 
 else
-    MESSAGE="Great news! All checks passed successfully. 🎉 You can upgrade this Mac via MDM. Log into your MDM server ($mdmUrl), read the documentation from Apple + your MDM vendor and go from there."
+    MESSAGE="Great news! All checks passed successfully. 🎉 You can upgrade this Mac via MDM. Log into your MDM server ($mdmUrl) and go from there."
     BUTTON="OK"
 fi
 
-echo "======= MacUpdateChaperone Conclusion: $MESSAGE ======" | tee -a "$log_file"
+echo "======= MacUpgradeChaperone Conclusion: $MESSAGE ======" | tee -a "$log_file"
 
 # Display AppleScript dialog
 
@@ -481,6 +493,6 @@ fi
 ####################################
 
 echo "Best of luck on your upgrade journey! Bon voyage! 👋" | tee -a "$log_file"
-echo "MacUpdateChaperone finished at: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file"
+echo "MacUpgradeChaperone finished at: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file"
 echo "=========================================" | tee -a "$log_file"
 exit 0
