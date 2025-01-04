@@ -42,11 +42,6 @@ log_file="$log_dir/macupgradechaperone_${timestamp}.log"
 ## Write to a new error log file for each run, appended with timestamp
 error_log="$log_dir/macupgradechaperone.error_${timestamp}.log"
 
-## Future plans:
-## - If macOS re-install needed, download installer from Apple using mist-cli 
-## - If not already installed, install mist-cli from GitHub
-
-
 
 
 
@@ -133,7 +128,7 @@ mdm_profile=$(profiles status -type enrollment)
 if [[ "$mdm_profile" == *"MDM enrollment: Yes"* ]]; then
   echo "--- ✅ MDM Profile: Installed." | tee -a "$log_file"
   mdmUrl=$(system_profiler SPConfigurationProfileDataType | awk -F'[/:?]' '/CheckInURL/ {print $4}')
-  echo "--- MDM Server: $mdmUrl" | tee -a "$log_file"
+  echo "------ MDM Server: $mdmUrl" | tee -a "$log_file"
 fi
  
 if [[ "$mdm_profile" == *"MDM enrollment: No"* ]]; then
@@ -155,6 +150,7 @@ else
     fi
 fi
 
+
 # Check if MDM profile is removable
 mdm_profile_removeable=$(profiles -e | grep "IsMDMUnremovable" | awk '{print $3}' | tr -d ';')
 
@@ -166,6 +162,20 @@ else
     echo "--- ❌  MDM Profile is removable." | tee -a "$log_file" | tee -a "$error_log"
   fi
 fi
+
+# Check if the push cert has expired
+apns_expiry_date=$(security find-certificate -a -p /Library/Keychains/System.keychain | \
+openssl x509 -noout -enddate | \
+grep "notAfter" | cut -d= -f2)
+
+current_date=$(date -u)
+
+if [[ "$(date -j -f "%b %d %T %Y GMT" "$apns_expiry_date" +"%s")" -lt "$(date -j -f "%a %b %d %T %Z %Y" "$current_date" +"%s")" ]]; then
+    echo "❌ Push certificate has expired." | tee -a "$log_file" | tee -a "$error_log"
+else
+    echo "✅ Push certificate is valid." | tee -a "$log_file"
+fi
+
 
 # Check if enrolled via Automated Device Enrolment
 ade_enrolled=$(profiles status -type enrollment)
@@ -224,14 +234,14 @@ else
 fi
 
 # Check MDM software update commands
-mdm_logs=$(log show --predicate 'eventMessage contains "MDM"' --info | grep "SoftwareUpdate" 2>/dev/null)
+#mdm_logs=$(log show --predicate 'eventMessage contains "MDM"' --info | grep "SoftwareUpdate" 2>/dev/null)
 
-if [ -n "$mdm_logs" ]; then
-    echo "--- ❌ MDM commands related to SoftwareUpdate detected:" | tee -a "$log_file" | tee -a "$error_log"
-    echo "------ $mdm_logs" | tee -a "$log_file" | tee -a "$error_log"
-else
-    echo "--- ✅ No MDM SoftwareUpdate commands detected in the logs." | tee -a "$log_file"
-fi
+#if [ -n "$mdm_logs" ]; then
+#    echo "--- ❌ MDM commands related to SoftwareUpdate detected:" | tee -a "$log_file" | tee -a #"$error_log"
+#    echo "------ $mdm_logs" | tee -a "$log_file" | tee -a "$error_log"
+#else
+#    echo "--- ✅ No MDM SoftwareUpdate commands detected in the logs." | tee -a "$log_file"
+#fi
 
 # Check for custom Software Update Catalog URL
 catalog_url=$(defaults read /Library/Preferences/com.apple.SoftwareUpdate CatalogURL 2>/dev/null)
@@ -396,6 +406,10 @@ else
 fi
 
 #### Check if macOS installer is already on disk 
+## Future plans:
+## - If macOS re-install needed, download installer from Apple using mist-cli 
+## - If not already installed, install mist-cli from GitHub
+
 
 # macOS installer path
 INSTALLER_PATH="/Applications/Install $targetOS.app"
@@ -433,7 +447,7 @@ GROUP_A_ERRORS=$(grep -E "Not compatible|not supported" "$ERROR_LOG")
 GROUP_B_ERRORS=$(grep -E "volumes are missing|cannot upgrade straight to $targetOS|MDM Profile is removable|not enrolled via DEP" "$ERROR_LOG")
 
 # Group C = Upgrade possible, but can't be achived with MDM commands- must be done manually 
-GROUP_C_ERRORS=$(grep -E "Mac is NOT managed|Bootstrap Token NOT Escrowed" "$ERROR_LOG")
+GROUP_C_ERRORS=$(grep -E "Mac is NOT managed|Bootstrap Token NOT Escrowed|expired" "$ERROR_LOG")
 
 # Group D = Compatible but can't upgrade _at the moment_
 GROUP_D_ERRORS=$(grep -E "not enough free space on disk|Software updates are restricted|Custom software update catalog URL|macOS updates are deferred" "$ERROR_LOG")
@@ -466,7 +480,7 @@ else
     BUTTON="OK"
 fi
 
-echo "======= MacUpgradeChaperone Conclusion: $MESSAGE ======" | tee -a "$log_file"
+echo "======= MacUpgradeChaperone Guidance: $MESSAGE ======" | tee -a "$log_file"
 
 # Display AppleScript dialog
 
