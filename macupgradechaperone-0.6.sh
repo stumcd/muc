@@ -53,7 +53,8 @@ echo "========= 🖥️ 🤵 Mac Upgrade Chaperone 🤵 🖥️ =========" | tee
 
 ## Use the target version specified by script parameters, will use default if not specified
 
-targetOS=$5
+#targetOS=$5
+targetOS="macOS Sonoma"
 
 echo "-- Target version: $targetOS" | tee -a "$log_file"
 
@@ -169,19 +170,25 @@ else
   fi
 fi
 
-# Check if the push cert has expired
+# Check if the push certificate has expired
 apns_expiry_date=$(security find-certificate -a -p /Library/Keychains/System.keychain | \
 openssl x509 -noout -enddate | \
-grep "notAfter" | cut -d= -f2)
+grep "notAfter" | head -n 1 | cut -d= -f2)
 
-current_date=$(date -u)
-
-if [[ "$(date -j -f "%b %d %T %Y GMT" "$apns_expiry_date" +"%s")" -lt "$(date -j -f "%a %b %d %T %Z %Y" "$current_date" +"%s")" ]]; then
-    echo "❌ Push certificate has expired." | tee -a "$log_file" | tee -a "$error_log"
-else
-    echo "✅ Push certificate is valid." | tee -a "$log_file"
+if [[ -z "$apns_expiry_date" ]]; then
+    echo "❌ No APNs push certificate found in the system keychain." | tee -a "$log_file" | tee -a "$error_log"
+    exit 1
 fi
 
+# Convert dates to Unix timestamps for comparison
+apns_expiry_ts=$(date -j -f "%b %d %H:%M:%S %Y %Z" "$apns_expiry_date" +"%s")
+current_ts=$(date -u +"%s")
+
+if [[ "$apns_expiry_ts" -lt "$current_ts" ]]; then
+    echo "❌ Push certificate has expired. Expiry date: $apns_expiry_date" | tee -a "$log_file" | tee -a "$error_log"
+else
+    echo "✅ Push certificate is valid. Expiry date: $apns_expiry_date" | tee -a "$log_file"
+fi
 
 # Check if enrolled via Automated Device Enrolment
 ade_enrolled=$(profiles status -type enrollment)
@@ -454,7 +461,9 @@ fi
 # There are 5 groups of errors:
 
 # Group A = Not compatible. End of the road. 
-GROUP_A_ERRORS=$(grep -E "Not compatible|not supported" "$ERROR_LOG")
+GROUP_A_ERRORS=$(grep -E "Not compatible|not supported|cannot upgrade" "$ERROR_LOG")
+######### DEBUG NOTE: - below line INCLUDES Oscar, above is TECHNICALLY CORRECT
+# GROUP_A_ERRORS=$(grep -E "Not compatible|not supported|cannot upgrade" "$ERROR_LOG") 
 
 # Group B = Nuke & pave needed
 GROUP_B_ERRORS=$(grep -E "volumes are missing|cannot upgrade straight to $targetOS|MDM Profile is removable|not enrolled via DEP" "$ERROR_LOG")
