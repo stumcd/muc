@@ -461,21 +461,21 @@ fi
 # There are 5 groups of errors:
 
 # Group A = Not compatible. End of the road. 
-GROUP_A_ERRORS=$(grep -E "Not compatible|not supported|cannot upgrade" "$ERROR_LOG")
+GROUP_A_ERRORS=$(grep -E "Not compatible|not supported|cannot upgrade" "$error_log")
 ######### DEBUG NOTE: - below line INCLUDES Oscar, above is TECHNICALLY CORRECT
-# GROUP_A_ERRORS=$(grep -E "Not compatible|not supported|cannot upgrade" "$ERROR_LOG") 
+# GROUP_A_ERRORS=$(grep -E "Not compatible|not supported|cannot upgrade" "$error_log") 
 
 # Group B = Nuke & pave needed
-GROUP_B_ERRORS=$(grep -E "volumes are missing|cannot upgrade straight to $targetOS|MDM Profile is removable|not enrolled via DEP" "$ERROR_LOG")
+GROUP_B_ERRORS=$(grep -E "volumes are missing|cannot upgrade straight to $targetOS|MDM Profile is removable|not enrolled via DEP" "$error_log")
 
 # Group C = Upgrade possible, but can't be achived with MDM commands- must be done manually 
-GROUP_C_ERRORS=$(grep -E "Mac is NOT managed|Bootstrap Token NOT Escrowed|expired" "$ERROR_LOG")
+GROUP_C_ERRORS=$(grep -E "Mac is NOT managed|Bootstrap Token NOT Escrowed|expired" "$error_log")
 
 # Group D = Compatible but can't upgrade _at the moment_
-GROUP_D_ERRORS=$(grep -E "not enough free space on disk|Software updates are restricted|Custom software update catalog URL|macOS updates are deferred" "$ERROR_LOG")
+GROUP_D_ERRORS=$(grep -E "not enough free space on disk|Software updates are restricted|Custom software update catalog URL|macOS updates are deferred" "$error_log")
 
 # Group E = Notable, but won't prevent upgrading
-GROUP_E_ERRORS=$(grep -E "Intel" "$ERROR_LOG")
+GROUP_E_ERRORS=$(grep -E "Intel" "$error_log")
 
 # Set the message and buttons based on error group
 
