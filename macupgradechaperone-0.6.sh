@@ -135,27 +135,33 @@ if [[ "$mdm_profile" == *"MDM enrollment: No"* ]]; then
   echo "--- ❌ MDM Profile not present. This Mac is NOT managed." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-# Check if the MDM profile is expired
-mdm_profile_expiry=$(profiles show | grep -A 1 "MDM Profile" | grep "ExpirationDate" | awk '{print $2}')
+# Check the MDM profile installation date
+mdm_profile_install_date=$(profiles show -output stdout-xml | plutil -extract ProfileDetails xml1 -o - - | grep -A 1 "InstallationDate" | grep -o '[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}T[0-9]\{2\}:[0-9]\{2\}:[0-9]\{2\}Z')
 
-if [[ -z "$mdm_profile_expiry" ]]; then
-    echo "--- ❌ No expiration date found or MDM profile is missing." | tee -a "$log_file" | tee -a "$error_log"
+if [[ -z "$mdm_profile_install_date" ]]; then
+    echo "--- ❌ Profiles binary couldn't find an MDM Profile... That's... odd." | tee -a "$log_file" | tee -a "$error_log"
 else
+
+    # Compare installation date with the current date
     current_date=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    if [[ "$mdm_profile_expiry" < "$current_date" ]]; then
-        echo "--- ❌ The MDM profile has expired." | tee -a "$log_file" | tee -a "$error_log"
+    mdm_profile_ts=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$mdm_profile_install_date" +%s)
+    current_ts=$(date -u +%s)
+
+    # Calculate timestamp for 5 years (5 * 365 * 24 * 60 * 60)
+    five_years_ago_ts=$((current_ts - 157680000))
+
+    if [[ "$mdm_profile_ts" -lt "$five_years_ago_ts" ]]; then
+        echo "--- ❌ The MDM Profile installation date ($mdm_profile_install_date) is over 5 years earlier than the current date ($current_date)." | tee -a "$log_file" | tee -a "$error_log"
     else
-        echo "--- ✅ The MDM profile has not expired." | tee -a "$log_file"
-        echo "--- MDM Profile expiry date: $mdm_profile_expiry" | tee -a "$log_file"
+        echo "--- ✅ The MDM Profile has a valid install date within 5 years." | tee -a "$log_file"
+        echo "--- MDM Profile installation date: $mdm_profile_install_date" | tee -a "$log_file"
     fi
 fi
-
-
 # Check if MDM profile is removable
 mdm_profile_removeable=$(profiles -e | grep "IsMDMUnremovable" | awk '{print $3}' | tr -d ';')
 
 if [[ ${mdm_profile_removeable} = '1' ]]; then
-	echo "--- ✅ MDM profile is NOT removable." | tee -a "$log_file"
+	echo "--- ✅ MDM Profile is NOT removable." | tee -a "$log_file"
 	
 else
   if [[ ${mdm_profile_removeable} = '0' ]]; then
@@ -179,11 +185,18 @@ fi
 
 # Check if enrolled via Automated Device Enrolment
 ade_enrolled=$(profiles status -type enrollment)
+user_approved_enrol=$(profiles status -type enrollment)
 
-if echo "$mdm_status" | grep -q "Enrolled via DEP: Yes"; then
+if echo "$ade_enrolled" | grep -q "Enrolled via DEP: Yes"; then
     echo "--- ✅ This Mac was enrolled using Automated Device Enrollment." | tee -a "$log_file"
 else
     echo "--- ❌ This Mac was not enrolled via Automated Device Enrollment." | tee -a "$log_file" | tee -a "$error_log"
+fi
+
+if echo "$user_approved_enrol" | grep -q "Yes (User Approved)"; then
+    echo "--- ⚠️ This Mac *is* enrolled in MDM (User Approved), not via Automated Device Enrollment.." | tee -a "$log_file"
+else
+    echo "--- ❌ Not MDM enrolled, not User Approved" | tee -a "$log_file"
 fi
 
 
