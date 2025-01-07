@@ -15,18 +15,18 @@ Note:
 
 ### Example screenshots
 Log:
-![muc - log](https://github.com/user-attachments/assets/c3b628d5-cac2-4093-9384-28690cd74855)
+![muc - log](https://raw.githubusercontent.com/stumcd/muc/main/README_Resources/example.png)
 
 Error log:
 ![muc - error_log](https://github.com/user-attachments/assets/204996b2-727e-409f-9b06-d6700618d9bd)
 
 
 
-## Currently checking: 
+## Checking for: 
 
 ### Connectivity
-* Connected to a wifi network? ✅
-* Connected to an wired network? ✅
+* Is the Mac connected to a wifi network? ✅
+* Is the Mac connected to an wired network? ✅
 * Can we netcat apple.com:443? ✅
 
 ### Management 
@@ -35,10 +35,11 @@ Error log:
   * Is the MDM profile non-removable?
   * Has the associated push cert expired? 
 * Was the device enrolled via Automated Device Enrollment (aka DEP)? ✅
-* Can we successfully connect to MDM server? ✅
-  * Has a Bootstrap Token been escrowed to the MDM server?
-* Are there any MDM-managed upgrade restrictions in-place?
-* Is there a deferral in place for macOS updates? ✅
+* Was the device enrolled using User-Approved?
+* Can we connect to the MDM server? ✅
+  * Has a Bootstrap Token been escrowed to the MDM server? 
+* Are there any MDM-managed upgrade restrictions in-place? 
+* Is there a deferral in place for macOS updates?
   * If so, how many days?
 * Is the Software Update Catalog URL set to Apple's default? ✅
  
