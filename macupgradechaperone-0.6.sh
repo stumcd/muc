@@ -273,13 +273,6 @@ else
 fi
 
 
-echo "-------------------------" | tee -a "$log_file"
-echo "Evaluation complete." | tee -a "$log_file"
-echo "-------------------------" | tee -a "$log_file"
-echo "🧮 Calculating the best upgrade path..." | tee -a "$log_file"
-echo "🌲 Reticulating splines..." | tee -a "$log_file"
-echo "-------------------------" | tee -a "$log_file"
-
 ######## Checking disk volumes
 echo "-------------------------" | tee -a "$log_file"
 echo "🧐 Checking the volumes on disk..." | tee -a "$log_file"
@@ -451,6 +444,13 @@ else
   echo "❌ $targetOS installer is not found at '$INSTALLER_PATH'." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
+
+echo "-------------------------" | tee -a "$log_file"
+echo "Evaluation complete." | tee -a "$log_file"
+echo "-------------------------" | tee -a "$log_file"
+echo "🧮 Calculating the best upgrade path..." | tee -a "$log_file"
+echo "🌲 Reticulating splines..." | tee -a "$log_file"
+echo "-------------------------" | tee -a "$log_file"
 
 
 ####################################
