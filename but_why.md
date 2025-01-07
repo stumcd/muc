@@ -28,9 +28,14 @@ macOS Sonoma is compatible with the following computers:
 
 -------------
 ### Nuke & Pave
-_Erase and re-install macOS._
+_Erase and re-install macOS. Using EACS within the GUI if possible. Alternatively, AC2, or bootable USB_
 * Weird array of volumes 
 * MDM profile is removable (No, I don't think your management tooling should be removable. Automated Device Enrollment only is the best posture.)
+
+Apple documentation: 
+- [How to reinstall macOS](https://support.apple.com/en-au/102655)
+- [Create a bootable installer for macOS](https://support.apple.com/en-au/101578)
+- 
 
 -------------
 ### Manual upgrade possible
@@ -64,11 +69,6 @@ This isn’t technically required, but consistency in file paths may be importan
 *There is no volume present named ‘Recovery’.*
 This isn’t technically required, but let’s avoid any weird situations where there’s an unusual array of volumes, thank you very much. 
 
-### Can’t upgrade via MDM, but upgrading via the GUI is possible
-
-#### No management detected
-*Mac is not managed*
-This Mac isn’t managed, so you can’t upgrade via MDM. However, you (or the end-user) can upgrade via System Preferences/Settings. 
 
 #### Bootstrap Token is missing
 *The MDM server can’t authorise the reboot without a Bootstrap Token*
