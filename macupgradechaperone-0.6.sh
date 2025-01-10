@@ -507,23 +507,23 @@ echo "======= MacUpgradeChaperone Guidance: $MESSAGE ======" | tee -a "$log_file
 
 # Display AppleScript dialog
 
-if [ "$BUTTON" != "OK" ]; then
-    osascript <<EOF
-tell application "System Events"
-    set userResponse to display dialog "$MESSAGE" buttons {"$BUTTON"} default button "$BUTTON"
-    if button returned of userResponse is "$BUTTON" then
-        do shell script "open \"$URL\""
-    end if
-end tell
-EOF
+#if [ "$BUTTON" != "OK" ]; then
+#    osascript <<EOF
+#tell application "System Events"
+#    set userResponse to display dialog "$MESSAGE" buttons {"$BUTTON"} default button "$BUTTON"
+#    if button returned of userResponse is "$BUTTON" then
+#        do shell script "open \"$URL\""
+#    end if
+#end tell
+#EOF
 
-else
-    osascript <<EOF
-tell application "System Events"
-    display dialog "$MESSAGE" buttons {"$BUTTON"} default button "$BUTTON"
-end tell
-EOF
-fi
+#else
+#    osascript <<EOF
+#tell application "System Events"
+#    display dialog "$MESSAGE" buttons {"$BUTTON"} default button "$BUTTON"
+#end tell
+#EOF
+#fi
 
 ####################################
 #       Wrap Up & Farewell         #
