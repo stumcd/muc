@@ -1,26 +1,64 @@
 # Rationale (aka "but why?")
 
-## Potential issues + upgrade workflow impact
 
-When you are trying to upgrade a Mac, there are five types of issues, in order from worst- to best-case scenario:
+On the journey to upgrade a given Mac, there are (as I see it) 5 potential pathways: 
 
-- The Mac isn’t compatible with the specified version. 
+1. **End of the road:**
+The Mac isn’t compatible with the specified version. 
  
-- Due to $Reasons, you should erase & re-install macOS.
+2. **Nuke & Pave:** Due to $Reasons, you have to erase & re-install macOS. 
    
-- The Mac _is_ compatible but you can’t use MDM for the upgrade. 
-- The Mac is compatible but there is small roadblock you can (probably) clear and run this script again
+3. **'Be' the user:** Upgrade possible, but not via MDM. Must be done manually in GUI, or Nuke & Pave.
 
-- You can successfully upgrade this Mac via your MDM solution. 🎉
+4. **Detour:** The Mac _is_ compatible but you can’t use MDM for the upgrade or there is small roadblock you can (probably) clear and run this script again
 
-### Mac isn’t compatible
-*This Mac can’t run macOS Sonoma...*
+5. **Latest & greatest**
+   Best case scenario! You can successfully upgrade this Mac via MDM. 🎉
 
-Sorry to be the bearer of bad news, but this Mac is too old. :(
+------------ 
+------------
+### End of the road
+_Sorry to be the bearer of bad news, but it's *not possible* for this Mac to run the target macOS version._
+* The Mac isn't compatible
+* The Mac isn't supported 
+* This Mac cannot upgrade
+
 macOS Sonoma is compatible with the following computers:
 [Apple documentation](https://support.apple.com/en-au/105113)
 
-### Erase and re-install macOS 
+-------------
+### Nuke & Pave
+_Erase and re-install macOS. Using EACS within the GUI if possible. Alternatively, AC2, or bootable USB_
+* Weird array of volumes 
+* MDM profile is removable (No, I don't think your management tooling should be removable. Automated Device Enrollment only is the best posture.)
+
+Apple documentation: 
+- [How to reinstall macOS](https://support.apple.com/en-au/102655)
+- [Create a bootable installer for macOS](https://support.apple.com/en-au/101578)
+- 
+
+-------------
+### Manual upgrade possible
+_Maybe the MDM Server is no longer available. Maybe there never was an MDM server. But you can upgrade this Mac manually, provided you know the password of a local user._
+* No MDM profile, Mac is not managed
+* Can't reach the MDM server
+* Bootstrap token is NOT escrowed 
+* Push cert is expired
+
+-------------
+### Detour
+* Not enough free space on disk 
+* MDM
+  - Software Update restriction in place
+  - macOS Update Deferral 
+* Software Update catalog custom URL
+
+
+
+
+
+
+-------------
 
 #### ‘Macintosh HD’ not found 
 *There is no volume present named ‘Macintosh HD’*
@@ -31,11 +69,6 @@ This isn’t technically required, but consistency in file paths may be importan
 *There is no volume present named ‘Recovery’.*
 This isn’t technically required, but let’s avoid any weird situations where there’s an unusual array of volumes, thank you very much. 
 
-### Can’t upgrade via MDM, but upgrading via the GUI is possible
-
-#### No management detected
-*Mac is not managed*
-This Mac isn’t managed, so you can’t upgrade via MDM. However, you (or the end-user) can upgrade via System Preferences/Settings. 
 
 #### Bootstrap Token is missing
 *The MDM server can’t authorise the reboot without a Bootstrap Token*
@@ -43,14 +76,16 @@ Without a Bootstrap Token, the MDM Server managing this device cannot authorise 
 Use secure token, bootstrap token and volume ownership in deployments 
 [Apple Platform Deployment documentation](https://support.apple.com/en-au/guide/deployment/dep24dbdcf9e/web)
 
+
+-------------
+
+### Detour
 ### Mac is compatible, but there’s a small obstacle you can probably overcome
 
 #### Not enough free space
 *There isn’t enough free space on this Mac*
 macOS Sonoma requires 23 GB of free space. 
 Krypted: [Free Space Required for Modern macOS Upgrades](https://krypted.com/mac-os-x/free-space-required-for-modern-macos-upgrades/)
-
-
 
 
 
