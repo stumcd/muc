@@ -480,26 +480,28 @@ GROUP_E_ERRORS=$(grep -E "Intel" "$error_log")
 # Set the message and buttons based on error group
 
 if [ -n "$GROUP_A_ERRORS" ]; then
-    MESSAGE="Bad news:\n\n$GROUP_A_ERRORS\n\nThis Mac is not compatible with target version of macOS ($targetOS)."
-    BUTTON="Compatibility Info..."
-    URL="https://support.apple.com/en-au/105113"
-    
+    MESSAGE="Bad news:\n\n$GROUP_A_ERRORS\n\nThis Mac is not compatible with the target version of macOS ($targetOS)."
+    osascript -e "display dialog \"$MESSAGE\" buttons {\"Compatibility Info…\", \"Quit\"} default button \"Quit\" with icon caution" \
+        -e "if button returned of result = \"Compatibility Info…\" then open location \"https://support.apple.com/en-au/105113\""
+
 elif [ -n "$GROUP_B_ERRORS" ]; then
-    MESSAGE="Bad news:\n\n$GROUP_B_ERRORS\n\nYou will need to erase and re-install macOS, using either Internet Recovery, or Apple Configurator 2. (aka time to nuke and pave)."
-    BUTTON="Show me how..."
-    URL="https://support.apple.com/en-au/guide/mac-help/mchl7676b710/15.0/mac/15.0"
+    MESSAGE="Bad news:\n\n$GROUP_B_ERRORS\n\nYou will need to erase and re-install macOS, using either Internet Recovery or Apple Configurator 2. (aka time to nuke and pave)."
+    osascript -e "display dialog \"$MESSAGE\" buttons {\"How to…\", \"Quit\"} default button \"Quit\" with icon caution" \
+        -e "if button returned of result = \"How to…\" then open location \"https://support.apple.com/en-au/guide/mac-help/mchl7676b710/15.0/mac/15.0\""
 
 elif [ -n "$GROUP_C_ERRORS" ]; then
-    MESSAGE="Not-so-great news:\n\n$GROUP_C_ERRORS\n\nThis Mac can be upgraded to $targetOS, but you won't be able to use MDM commands to achieve this. Recommendation: upgrade macOS via System Preferences"
-    BUTTON="OK"
+    MESSAGE="Not-so-great news:\n\n$GROUP_C_ERRORS\n\nThis Mac can be upgraded to $targetOS, but you won't be able to use MDM commands to achieve this. Recommendation: upgrade macOS via System Preferences."
+    osascript -e "display dialog \"$MESSAGE\" buttons {\"Open System Settings…\", \"Quit\"} default button \"Quit\" with icon note" \
+        -e "if button returned of result = \"Open System Settings…\" then do shell script \"open -a 'System Settings'\""
 
 elif [ -n "$GROUP_D_ERRORS" ]; then
     MESSAGE="Uh oh:\n\n$GROUP_D_ERRORS\n\nHave a look at the above issues. Rectify these and try again. Or, just nuke and pave."
-    BUTTON="OK"
+    osascript -e "display dialog \"$MESSAGE\" buttons {\"Show error log\", \"Quit\"} default button \"Quit\" with icon stop" \
+        -e "if button returned of result = \"Show error log\" then do shell script \"open /path/to/error/log\""
 
 else
     MESSAGE="Great news! All checks passed successfully. 🎉 You can upgrade this Mac via MDM. Log into your MDM server ($mdmUrl) and go from there."
-    BUTTON="OK"
+    osascript -e "display dialog \"$MESSAGE\" buttons {\"OK\"} default button \"OK\" with icon note"
 fi
 
 echo "======= MacUpgradeChaperone Guidance: $MESSAGE ======" | tee -a "$log_file"
