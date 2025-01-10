@@ -137,27 +137,27 @@ if [[ "$mdm_profile" == *"MDM enrollment: No"* ]]; then
 fi
 
 # Check the MDM profile installation date
-mdm_profile_install_date=$(profiles show -output stdout-xml | plutil -extract ProfileDetails xml1 -o - - | grep -A 1 "InstallationDate" | grep -o '[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}T[0-9]\{2\}:[0-9]\{2\}:[0-9]\{2\}Z')
+# mdm_profile_install_date=$(profiles show -output stdout-xml | plutil -extract ProfileDetails xml1 -o - - | grep -A 1 "InstallationDate" | grep -o '[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}T[0-9]\{2\}:[0-9]\{2\}:[0-9]\{2\}Z')
 
-if [[ -z "$mdm_profile_install_date" ]]; then
-    echo "--- ❌ Profiles binary couldn't find an MDM Profile... That's... odd." | tee -a "$log_file" | tee -a "$error_log"
-else
+#if [[ -z "$mdm_profile_install_date" ]]; then
+#    echo "--- ❌ Profiles binary couldn't find an MDM Profile... That's... odd." | tee -a "$log_file" | tee -a "$error_log"
+#else
 
     # Compare installation date with the current date
-    current_date=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    mdm_profile_ts=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$mdm_profile_install_date" +%s)
-    current_ts=$(date -u +%s)
+#    current_date=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+#    mdm_profile_ts=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$mdm_profile_install_date" +%s)
+#    current_ts=$(date -u +%s)
 
     # Calculate timestamp for 5 years (5 * 365 * 24 * 60 * 60)
-    five_years_ago_ts=$((current_ts - 157680000))
+#    five_years_ago_ts=$((current_ts - 157680000))
 
-    if [[ "$mdm_profile_ts" -lt "$five_years_ago_ts" ]]; then
-        echo "--- ❌ The MDM Profile installation date ($mdm_profile_install_date) is over 5 years earlier than the current date ($current_date)." | tee -a "$log_file" | tee -a "$error_log"
-    else
-        echo "--- ✅ The MDM Profile has a valid install date within 5 years." | tee -a "$log_file"
-        echo "--- MDM Profile installation date: $mdm_profile_install_date" | tee -a "$log_file"
-    fi
-fi
+#    if [[ "$mdm_profile_ts" -lt "$five_years_ago_ts" ]]; then
+#        echo "--- ❌ The MDM Profile installation date ($mdm_profile_install_date) is over 5 years earlier than the current date ($current_date)." | tee -a "$log_file" | tee -a "$error_log"
+#    else
+#        echo "--- ✅ The MDM Profile has a valid install date within 5 years." | tee -a "$log_file"
+#        echo "--- MDM Profile installation date: $mdm_profile_install_date" | tee -a "$log_file"
+#    fi
+#fi
 # Check if MDM profile is removable
 mdm_profile_removeable=$(profiles -e | grep "IsMDMUnremovable" | awk '{print $3}' | tr -d ';')
 
@@ -478,52 +478,51 @@ GROUP_D_ERRORS=$(grep -E "not enough free space on disk|Software updates are res
 GROUP_E_ERRORS=$(grep -E "Intel" "$error_log")
 
 # Set the message and buttons based on error group
-if [ -n "$GROUP_A_ERRORS" ]; then
-    MESSAGE="Bad news:\n\n$GROUP_A_ERRORS\n\nThis Mac is not compatible with the target version of macOS ($targetOS)."
-    osascript -e "display dialog \"$MESSAGE\" buttons {\"Compatibility Info…\", \"Quit\"} default button \"Quit\" with icon caution" \
-        -e "if button returned of result = \"Compatibility Info…\" then open location \"https://support.apple.com/en-au/105113\""
 
+if [ -n "$GROUP_A_ERRORS" ]; then
+    MESSAGE="Bad news:\n\n$GROUP_A_ERRORS\n\nThis Mac is not compatible with target version of macOS ($targetOS)."
+    BUTTON="Compatibility Info..."
+    URL="https://support.apple.com/en-au/105113"
+    
 elif [ -n "$GROUP_B_ERRORS" ]; then
-    MESSAGE="Bad news:\n\n$GROUP_B_ERRORS\n\nYou will need to erase and re-install macOS, using either Internet Recovery or Apple Configurator 2. (aka time to nuke and pave)."
-    osascript -e "display dialog \"$MESSAGE\" buttons {\"How to…\", \"Quit\"} default button \"Quit\" with icon caution" \
-        -e "if button returned of result = \"How to…\" then open location \"https://support.apple.com/en-au/guide/mac-help/mchl7676b710/15.0/mac/15.0\""
+    MESSAGE="Bad news:\n\n$GROUP_B_ERRORS\n\nYou will need to erase and re-install macOS, using either Internet Recovery, or Apple Configurator 2. (aka time to nuke and pave)."
+    BUTTON="Show me how..."
+    URL="https://support.apple.com/en-au/guide/mac-help/mchl7676b710/15.0/mac/15.0"
 
 elif [ -n "$GROUP_C_ERRORS" ]; then
-    MESSAGE="Not-so-great news:\n\n$GROUP_C_ERRORS\n\nThis Mac can be upgraded to $targetOS, but you won't be able to use MDM commands to achieve this. Recommendation: upgrade macOS via System Preferences."
-    osascript -e "display dialog \"$MESSAGE\" buttons {\"Open System Settings…\", \"Quit\"} default button \"Quit\" with icon note" \
-        -e "if button returned of result = \"Open System Settings…\" then do shell script \"open -a 'System Settings'\""
+    MESSAGE="Not-so-great news:\n\n$GROUP_C_ERRORS\n\nThis Mac can be upgraded to $targetOS, but you won't be able to use MDM commands to achieve this. Recommendation: upgrade macOS via System Preferences"
+    BUTTON="OK"
 
 elif [ -n "$GROUP_D_ERRORS" ]; then
     MESSAGE="Uh oh:\n\n$GROUP_D_ERRORS\n\nHave a look at the above issues. Rectify these and try again. Or, just nuke and pave."
-    osascript -e "display dialog \"$MESSAGE\" buttons {\"Show error log\", \"Quit\"} default button \"Quit\" with icon stop" \
-        -e "if button returned of result = \"Show error log\" then do shell script \"open /path/to/error/log\""
+    BUTTON="OK"
 
 else
     MESSAGE="Great news! All checks passed successfully. 🎉 You can upgrade this Mac via MDM. Log into your MDM server ($mdmUrl) and go from there."
-    osascript -e "display dialog \"$MESSAGE\" buttons {\"OK\"} default button \"OK\" with icon note"
+    BUTTON="OK"
 fi
 
 echo "======= MacUpgradeChaperone Guidance: $MESSAGE ======" | tee -a "$log_file"
 
 # Display AppleScript dialog
 
-#if [ "$BUTTON" != "OK" ]; then
-#    osascript <<EOF
-#tell application "System Events"
-#    set userResponse to display dialog "$MESSAGE" buttons {"$BUTTON"} default button "$BUTTON"
-#    if button returned of userResponse is "$BUTTON" then
-#        do shell script "open \"$URL\""
-#    end if
-#end tell
-#EOF
+if [ "$BUTTON" != "OK" ]; then
+    osascript <<EOF
+tell application "System Events"
+    set userResponse to display dialog "$MESSAGE" buttons {"$BUTTON"} default button "$BUTTON"
+    if button returned of userResponse is "$BUTTON" then
+        do shell script "open \"$URL\""
+    end if
+end tell
+EOF
 
-#else
-#    osascript <<EOF
-#tell application "System Events"
-#    display dialog "$MESSAGE" buttons {"$BUTTON"} default button "$BUTTON"
-#end tell
-#EOF
-#fi
+else
+    osascript <<EOF
+tell application "System Events"
+    display dialog "$MESSAGE" buttons {"$BUTTON"} default button "$BUTTON"
+end tell
+EOF
+fi
 
 ####################################
 #       Wrap Up & Farewell         #
