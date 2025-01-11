@@ -27,14 +27,13 @@ log_dir="/usr/local/muc"
 
 ## Create the directory if it doesn't exist
 if [ ! -d "$log_dir" ]; then
-  echo "The directory '$log_dir' does not exist. Creating it now..."
+  echo "The log directory '$log_dir' does not exist. Creating it now..."
   sudo mkdir -p "$log_dir"
   sudo chown $(whoami) "$log_dir"  # Ensure the current user has ownership
 fi
 
 # Get the current timestamp (format: YYYYMMDD_HHMMSS)
 timestamp=$(date +"%Y%m%d_%H%M%S")
-#echo "$timestamp" | tee -a "$log_file"
 
 ## Write to a new log file for each run, appended with timestamp
 log_file="$log_dir/macupgradechaperone_${timestamp}.log"
@@ -42,6 +41,7 @@ log_file="$log_dir/macupgradechaperone_${timestamp}.log"
 ## Write to a new error log file for each run, appended with timestamp
 error_log="$log_dir/macupgradechaperone.error_${timestamp}.log"
 
+echo "Log files: $log_file (main) and $error_log (errors)" | tee -a "$log_file"
 
 
 
@@ -53,7 +53,10 @@ echo "========= 🖥️ 🤵 Mac Upgrade Chaperone 🤵 🖥️ =========" | tee
 
 ## Use the target version specified by script parameters, will use default if not specified
 
+## Jamf Pro script parameters:
 #targetOS=$5
+
+## Testing - hard-coded value:
 targetOS="macOS Sonoma"
 
 echo "-- Target version: $targetOS" | tee -a "$log_file"
@@ -66,19 +69,17 @@ else
     echo "Target version set by Jamf Pro script parameters: $targetOS" | tee -a "$log_file"
 fi
 
-## Check if the Mac is connected to a network (Wi-Fi or Ethernet)
-wifi_nic=$(networksetup -getnetworkserviceenabled "Wi-Fi" 2>/dev/null || echo "Disabled")
-ethernet_nic=$(networksetup -getnetworkserviceenabled "Ethernet" 2>/dev/null || echo "Disabled")
+echo "🌐 Checking network connection..." | tee -a "$log_file"
 
-wifi_connected=$(ifconfig en0 | grep "status: active" >/dev/null 2>&1 && echo "Yes" || echo "No")
-ethernet_connected=$(ifconfig en1 | grep "status: active" >/dev/null 2>&1 && echo "Yes" || echo "No")
+## Check if the Mac is connected to a network (Wi-Fi or Ethernet)
+wifi_status=$(networksetup -getnetworkserviceenabled "Wi-Fi" 2>/dev/null || echo "Disabled")
+ethernet_status=$(networksetup -getnetworkserviceenabled "Ethernet" 2>/dev/null || echo "Disabled")
+
 
 if [ "$wifi_connected" != "Yes" ] && [ "$ethernet_connected" != "Yes" ]; then
     echo "--- ❌ No active network connection found (Wi-Fi or Ethernet)." | tee -a "$log_file" | tee -a "$error_log"
-    echo "-- Wi-Fi network status: $network_status" | tee -a "$log_file" | tee -a "$error_log"
+    echo "-- Wi-Fi network status: $wifi_status" | tee -a "$log_file" | tee -a "$error_log"
     echo "-- Ethernet network status: $ethernet_status" | tee -a "$log_file" | tee -a "$error_log"
-    echo "-- Wi-Fi connected: $wifi_connected" | tee -a "$log_file" | tee -a "$error_log"
-    echo "-- Ethernet connected: $ethernet_connected" | tee -a "$log_file" | tee -a "$error_log"
     
 while true; do
     response=$(osascript -e 'display dialog "Unfortunately, there is no network connection and many of our checks require connectivity. Please connect this Mac to a network (using Wi-Fi or Ethernet) and run this script again." buttons {"Quit", "Retry"} default button "Retry" with icon stop')
@@ -101,7 +102,7 @@ else
     echo "-- Ethernet connected: $ethernet_connected" | tee -a "$log_file"
 fi
 
-# Last network check - can we Netcat apple.com:443
+# Final network check - Netcat apple.com:443
 nc -z -w 5 apple.com 443 >/dev/null 2>&1
 nc_apple=$?
 
@@ -113,13 +114,12 @@ else
     echo "--- ✅ Successfully connected to apple.com on port 443. Port check passed." | tee -a "$log_file"
 fi
 
-
 echo "-------------------------" | tee -a "$log_file"
 echo "----- Guiding your journey to... ✨ $targetOS ✨" | tee -a "$log_file"
 echo "Started: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file" 
 echo "-------------------------" | tee -a "$log_file"
 
-### Check if Mac is managed 
+### Check whether Mac is managed or not
 
 # Check if there's an MDM profile installed 
 echo "⚙️  Checking MDM enrollment..." | tee -a "$log_file"
@@ -229,9 +229,9 @@ fi
 echo "Checking for any macOS upgrade restrictions..." | tee -a "$log_file"
 
 # Check macOS upgrade restrictions in com.apple.applicationaccess
-if sudo defaults read /Library/Managed\ Preferences/com.apple.applicationaccess &>/dev/null; then
-    restrict=$(sudo defaults read /Library/Managed\ Preferences/com.apple.applicationaccess restrict-software-update 2>/dev/null)
-    max_os=$(sudo defaults read /Library/Managed\ Preferences/com.apple.applicationaccess max-os-version 2>/dev/null)
+if defaults read /Library/Managed\ Preferences/com.apple.applicationaccess &>/dev/null; then
+    restrict=$(defaults read /Library/Managed\ Preferences/com.apple.applicationaccess restrict-software-update 2>/dev/null)
+    max_os=$(defaults read /Library/Managed\ Preferences/com.apple.applicationaccess max-os-version 2>/dev/null)
     
     if [ "$restrict" == "1" ]; then
         echo "--- ❌ Software updates are restricted by MDM." | tee -a "$log_file" | tee -a "$error_log"
@@ -284,7 +284,7 @@ volumes=("Macintosh HD" "Macintosh HD - Data" "Preboot" "Recovery" "VM")
 all_volumes_present=true
 
 # Loop through and check for each volume
-for volume in "${VOLUMES[@]}"; do
+for volume in "${volumes[@]}"; do
   if diskutil list | grep -q "$volume"; then
     echo "✅ '$volume' Volume is present."
   else
@@ -504,19 +504,9 @@ else
     osascript -e "display dialog \"$MESSAGE\" buttons {\"OK\"} default button \"OK\" with icon note"
 fi
 
-echo "======= MacUpgradeChaperone Guidance: $MESSAGE ======" | tee -a "$log_file"
+echo "======= MacUpgradeChaperone Conclusion ======" | tee -a "$log_file"
+echo "$MESSAGE" | tee -a "$log_file"
 
-# Display AppleScript dialog
-
-
-
-else
-    osascript <<EOF
-tell application "System Events"
-    display dialog "$MESSAGE" buttons {"$BUTTON"} default button "$BUTTON"
-end tell
-EOF
-fi
 
 ####################################
 #       Wrap Up & Farewell         #
