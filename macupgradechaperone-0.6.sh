@@ -76,7 +76,7 @@ wifi_status=$(networksetup -getnetworkserviceenabled "Wi-Fi" 2>/dev/null || echo
 ethernet_status=$(networksetup -getnetworkserviceenabled "Ethernet" 2>/dev/null || echo "Disabled")
 
 
-if [ "$wifi_connected" != "Yes" ] && [ "$ethernet_connected" != "Yes" ]; then
+if [ "$wifi_status" != "Yes" ] && [ "$ethernet_status" != "Yes" ]; then
     echo "--- ❌ No active network connection found (Wi-Fi or Ethernet)." | tee -a "$log_file" | tee -a "$error_log"
     echo "-- Wi-Fi network status: $wifi_status" | tee -a "$log_file" | tee -a "$error_log"
     echo "-- Ethernet network status: $ethernet_status" | tee -a "$log_file" | tee -a "$error_log"
