@@ -504,7 +504,7 @@ else
     osascript -e "display dialog \"$MESSAGE\" buttons {\"OK\"} default button \"OK\" with icon note"
 fi
 
-echo "======= MacUpgradeChaperone Conclusion ======" | tee -a "$log_file"
+echo "======= MacUpgradeChaperone Conclusion ======" | tee -a "$log_file" 
 echo "$MESSAGE" | tee -a "$log_file"
 
 
