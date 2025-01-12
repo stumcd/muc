@@ -72,34 +72,49 @@ fi
 echo "🌐 Checking network connection..." | tee -a "$log_file"
 
 ## Check if the Mac is connected to a network (Wi-Fi or Ethernet)
-wifi_status=$(networksetup -getnetworkserviceenabled "Wi-Fi" 2>/dev/null || echo "Disabled")
-ethernet_status=$(networksetup -getnetworkserviceenabled "Ethernet" 2>/dev/null || echo "Disabled")
 
+check_network_status() {
+    # Detect the actual Wi-Fi and Ethernet service names
+    wifi_service=$(networksetup -listallnetworkservices | grep -i "Wi-Fi")
+    ethernet_service=$(networksetup -listallnetworkservices | grep -i "Ethernet")
 
-if [ "$wifi_status" != "Yes" ] && [ "$ethernet_status" != "Yes" ]; then
-    echo "--- ❌ No active network connection found (Wi-Fi or Ethernet)." | tee -a "$log_file" | tee -a "$error_log"
-    echo "-- Wi-Fi network status: $wifi_status" | tee -a "$log_file" | tee -a "$error_log"
-    echo "-- Ethernet network status: $ethernet_status" | tee -a "$log_file" | tee -a "$error_log"
-    
-while true; do
-    response=$(osascript -e 'display dialog "Unfortunately, there is no network connection and many of our checks require connectivity. Please connect this Mac to a network (using Wi-Fi or Ethernet) and run this script again." buttons {"Quit", "Retry"} default button "Retry" with icon stop')
+    # Check connection status
+    wifi_connected=$(ifconfig en0 2>/dev/null | grep -q "status: active" && echo "Connected" || echo "Not connected")
+    ethernet_connected=$(ifconfig en1 2>/dev/null | grep -q "status: active" && echo "Connected" || echo "Not connected")
 
-    if [[ "$response" == "button returned:Quit" ]]; then
-        echo "Network connnection not detected." | tee -a "$log_file" 
-        echo "User chose to quit." | tee -a "$log_file" 
-        exit 1
-    elif [[ "$response" == "button returned:Retry" ]]; then
-        echo "Network connnection not detected." | tee -a "$log_file"         
-        echo "User chose to retry. Restarting the script... " | tee -a "$log_file" 
+    # Log results
+    echo "-- Detected Wi-Fi service: $wifi_service" | tee -a "$log_file"
+    echo "-- Detected Ethernet service: $ethernet_service" | tee -a "$log_file"
+    echo "-- Wi-Fi connection status: $wifi_connected" | tee -a "$log_file"
+    echo "-- Ethernet connection status: $ethernet_connected" | tee -a "$log_file"
+
+    # Return status
+    if [[ "$wifi_connected" == "Connected" || "$ethernet_connected" == "Connected" ]]; then
+        return 0
+    else
+        return 1
     fi
-done
-    
+}
+
+# Initial network check
+if ! check_network_status; then
+    echo "--- ❌ No active network connection found." | tee -a "$log_file" | tee -a "$error_log"
+    while true; do
+        response=$(osascript -e 'display dialog "No network connection detected. Please connect to Wi-Fi or Ethernet and try again." buttons {"Quit", "Retry"} default button "Retry" with icon stop')
+
+        if [[ "$response" == "button returned:Quit" ]]; then
+            echo "User chose to quit." | tee -a "$log_file"
+            exit 1
+        elif [[ "$response" == "button returned:Retry" ]]; then
+            echo "User chose to retry." | tee -a "$log_file"
+            if check_network_status; then
+                echo "--- ✅ Network connection restored." | tee -a "$log_file"
+                break
+            fi
+        fi
+    done
 else
-    echo "--- ✅ Network connection available." | tee -a "$log_file"
-    echo "-- Wi-Fi network status: $network_status" | tee -a "$log_file"
-    echo "-- Ethernet network status: $ethernet_status" | tee -a "$log_file"
-    echo "-- Wi-Fi connected: $wifi_connected" | tee -a "$log_file"
-    echo "-- Ethernet connected: $ethernet_connected" | tee -a "$log_file"
+    echo "--- ✅ Network connection is active." | tee -a "$log_file"
 fi
 
 # Final network check - Netcat apple.com:443
