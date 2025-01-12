@@ -240,32 +240,36 @@ else
     echo "--- ❌ Bootstrap Token NOT Escrowed" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-# Check if there are any MDM restrictions in place that would prevent upgrading 
+# Check for macOS upgrade restrictions
 echo "Checking for any macOS upgrade restrictions..." | tee -a "$log_file"
 
-# Check macOS upgrade restrictions in com.apple.applicationaccess
-if defaults read /Library/Managed\ Preferences/com.apple.applicationaccess &>/dev/null; then
-    restrict=$(defaults read /Library/Managed\ Preferences/com.apple.applicationaccess restrict-software-update 2>/dev/null)
-    max_os=$(defaults read /Library/Managed\ Preferences/com.apple.applicationaccess max-os-version 2>/dev/null)
+# Check if com.apple.applicationaccess exists
+if [ -f /Library/Managed\ Preferences/com.apple.applicationaccess.plist ]; then
+    restrict=$(defaults read /Library/Managed\ Preferences/com.apple.applicationaccess restrict-software-update 2>/dev/null || echo "Not found")
+    max_os=$(defaults read /Library/Managed\ Preferences/com.apple.applicationaccess max-os-version 2>/dev/null || echo "Not found")
     
     if [ "$restrict" == "1" ]; then
-        echo "--- ❌ Software updates are restricted by MDM." | tee -a "$log_file" | tee -a "$error_log"
-    elif [ -n "$max_os" ]; then
-        echo "------ Maximum allowed macOS version: $max_os" | tee -a "$log_file" | tee -a "$error_log"
+        echo "--- ❌ Software updates are restricted by MDM (restrict-software-update = 1)." | tee -a "$log_file" | tee -a "$error_log"
+    elif [ "$max_os" != "Not found" ]; then
+        echo "--- ❌ Maximum allowed macOS version: $max_os" | tee -a "$log_file" | tee -a "$error_log"
     else
         echo "--- ✅ No macOS restrictions found in com.apple.applicationaccess." | tee -a "$log_file"
     fi
 else
-    echo "No com.apple.applicationaccess MDM profile found." | tee -a "$log_file"
+    echo "No MDM restrictions found in com.apple.applicationaccess." | tee -a "$log_file"
 fi
 
-# Check for deferred updates
-deferred_days=$(defaults read /Library/Preferences/com.apple.SoftwareUpdate SoftwareUpdateMajorOSDeferredInstallDelay 2>/dev/null)
+# Check deferred updates in com.apple.SoftwareUpdate
+if [ -f /Library/Preferences/com.apple.SoftwareUpdate.plist ]; then
+    deferred_days=$(defaults read /Library/Preferences/com.apple.SoftwareUpdate SoftwareUpdateMajorOSDeferredInstallDelay 2>/dev/null || echo "Not found")
 
-if [ -n "$deferred_days" ] && [ "$deferred_days" -gt 0 ]; then
-    echo "--- ❌ Major macOS updates are deferred by $deferred_days days." | tee -a "$log_file" | tee -a "$error_log" 
+    if [ "$deferred_days" != "Not found" ] && [ "$deferred_days" -gt 0 ]; then
+        echo "--- ❌ Major macOS updates are deferred by $deferred_days days (via MDM)." | tee -a "$log_file" | tee -a "$error_log"
+    else
+        echo "--- ✅ No deferral policy for macOS updates detected." | tee -a "$log_file"
+    fi
 else
-    echo "--- ✅ No deferral policy for macOS updates detected." | tee -a "$log_file"
+    echo "No deferral policy found in com.apple.SoftwareUpdate." | tee -a "$log_file"
 fi
 
 # Check MDM software update commands
