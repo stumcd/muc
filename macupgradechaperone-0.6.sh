@@ -132,6 +132,41 @@ echo "-------------------------" | tee -a "$log_file"
 
 echo "Start time: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file" 
 
+# Function to check if a user has a Secure Token
+check_secure_token() {
+    local user="$1"
+    sysadminctl -secureTokenStatus "$user" 2>&1 | grep -q "ENABLED"
+    if [ $? -eq 0 ]; then
+        echo "Secure Token: ENABLED"
+    else
+        echo "Secure Token: DISABLED"
+    fi
+}
+
+# Start logging
+echo "Checking local user accounts for admin/standard roles and Secure Token status..." | tee -a "$log_file"
+
+# Get a list of local user accounts
+user_list=$(dscl . list /Users | grep -vE '^_|daemon|nobody|root|com.apple')
+
+# Loop through each user
+for user in $user_list; do
+    # Check if the user is an admin
+    is_admin=$(dscl . read /Groups/admin GroupMembership | grep -q "\\b$user\\b" && echo "Admin" || echo "Standard User")
+
+    # Check Secure Token status
+    secure_token_status=$(check_secure_token "$user")
+
+    # Log the results
+    echo "User: $user" | tee -a "$log_file"
+    echo "Role: $is_admin" | tee -a "$log_file"
+    echo "$secure_token_status" | tee -a "$log_file"
+    echo "---" | tee -a "$log_file"
+done
+
+# Final log entry
+echo "User account check completed." | tee -a "$log_file"
+
 ### Check whether Mac is managed or not
 
 # Check if there's an MDM profile installed 
