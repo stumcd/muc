@@ -243,7 +243,7 @@ else
     echo "❌ Bootstrap Token NOT Escrowed" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-# Check for macOS upgrade restrictions
+#  Check for macOS upgrade restrictions
 echo "Checking for any macOS upgrade restrictions..." | tee -a "$log_file"
 
 # Check if com.apple.applicationaccess exists
@@ -251,7 +251,7 @@ if [ -f "/Library/Managed Preferences/com.apple.applicationaccess.plist" ]; then
     restrict=$(/usr/bin/defaults read /Library/Managed\ Preferences/com.apple.applicationaccess restrict-software-update 2>/dev/null || echo "Not found")
     max_os=$(/usr/bin/defaults read /Library/Managed\ Preferences/com.apple.applicationaccess max-os-version 2>/dev/null || echo "Not found")
     
-    if [ "$restrict" == "1" ]; then
+    if [ "$restrict" = "1" ]; then
         echo "❌ Software updates are restricted by MDM (restrict-software-update = 1)." | tee -a "$log_file" "$error_log"
     elif [ "$max_os" != "Not found" ]; then
         echo "❌ Maximum allowed macOS version: $max_os" | tee -a "$log_file" "$error_log"
