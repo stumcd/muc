@@ -62,11 +62,87 @@ Note:
 * Is there an Installer on disk already? "/Applications/Install $targetOS.app" ✅
 * Is the startosinstall binary available the installer too? ✅
  
-### Example screenshots
-Log:
-![muc - log](https://raw.githubusercontent.com/stumcd/muc/main/README_Resources/example.png)
+## Example output: 
+```
+Log: /usr/local/muc/macupgradechaperone_20250114_095823.log
+Error log: /usr/local/muc/macupgradechaperone_20250114_095823.error.log
+========= 🖥️ 🤵 Mac Upgrade Chaperone v0.6🤵 🖥️ =========
+-------------------------
+- Jamf Pro script parameters were not detected, so falling back to default.
+🎯 Target version set: macOS Sonoma
+-------------------------
+🌐 Checking network connection...
+✅ Network connection detected. 🎉
+✅ Successfully connected to apple.com on port 443. Port check passed.
+-------------------------
+----- Guiding your journey to... ✨ macOS Sonoma ✨ -----
+-------------------------
+Start time: 2025-01-14 09:58:23
+Checking local user accounts for admin/standard roles and Secure Token status...
+User: john.smith
+Role: Admin
+Secure Token: ENABLED
+---
+User account check completed.
+------------------------------
+⚙️  Checking MDM enrollment...
+------------------------------
+✅ MDM Profile: Installed.
+--- MDM Server: blah.jamfcloud.com
+❌  MDM Profile is removable.
+✅ Push certificate is valid. Expiry date: Feb  6 05:22:29 2042 GMT
+✅ This Mac was enrolled using Automated Device Enrollment
+⚠️ This Mac _is_ enrolled in MDM (User Approved), but not via Automated Device Enrollment..
+------------------------------
+⚙️  Checking MDM Server...
+------------------------------
+✅ MDM Server is reachable. URL: blah.jamfcloud.com. HTTP status code: 301
+✅ Bootstrap Token has been escrowed
+Checking for any macOS upgrade restrictions...
+✅ No macOS restrictions found in com.apple.applicationaccess.
+✅ No deferral policy for macOS updates detected.
+✅ The system is using Apple's default software update catalog.
+------------------------------
+🧐 Checking the volumes on disk...
+------------------------------
+✅ 'Macintosh HD' Volume is present.
+❌ 'Macintosh HD - Data' Volume is missing.
+✅ 'Preboot' Volume is present.
+✅ 'Recovery' Volume is present.
+✅ 'VM' Volume is present.
+❌ Some required volumes are missing.
+------------------------------
+📏 Checking available space...
+------------------------------
+--- ✅ There is enough free space (20 GB required, 104 GB available).
+✅ Architecture: Apple silicon
+------------------------------
+🖥  Mac hardware:
+Serial: XWXYZ0V123
+Model: MacBook Pro
+Model Identifier: MacBookPro18,3
+Processor Info: Apple M1 Pro
+✅ Architecture: Apple silicon
+-------------------------
+✅ Compatible with macOS Sonoma
+-------------------------
+🖥  Checking existing macOS installation
+✅ 15.2 can upgrade to macOS Sonoma
+❌ macOS Sonoma installer was not found in /Applications
+-------------------------
+Evaluation complete.
+-------------------------
+🧮 Calculating the best upgrade path...
+🌲 Reticulating splines...
+-------------------------
+======= MacUpgradeChaperone Conclusion ======
+Bad news...
 
-Error log:
-![muc - error_log](https://github.com/user-attachments/assets/204996b2-727e-409f-9b06-d6700618d9bd)
+❌  MDM Profile is removable.
+❌ Some required volumes are missing.
 
-
+You will need to erase and re-install macOS, using either Internet Recovery or Apple Configurator 2. (aka time to nuke and pave).
+-------------------------
+Best of luck on your upgrade journey! Bon voyage! 👋
+Completed time: 2025-01-14 09:58:28
+```
