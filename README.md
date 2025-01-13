@@ -11,18 +11,25 @@ Note:
 2. Will this script *determine what's possible and let you know?* **Yes.**
 3. Is this still a work-in-progress? *Yes!*
 
-[Link to script:](https://github.com/stumcd/muc/blob/92c9c35fbac19e1376353805e50b8404f70e0932/macupgradechaperone-0.6.sh)
 
-### Example screenshots
-Log:
-![muc - log](https://raw.githubusercontent.com/stumcd/muc/main/README_Resources/example.png)
+## How to use
+### Jamf Pro
+1. Upload script
+2. Create policy
+3. Scope
+4. Upload extension attribute (optional) 
+5. Test
 
-Error log:
-![muc - error_log](https://github.com/user-attachments/assets/204996b2-727e-409f-9b06-d6700618d9bd)
+### Manually
+1. Download script
+2. Execute `sudo sh /path/to/macupgradechaperone-0.6.sh`
+
+[Direct link to script](https://github.com/stumcd/muc/blob/92c9c35fbac19e1376353805e50b8404f70e0932/macupgradechaperone-0.6.sh)
 
 
 
-## Checking for: 
+
+## Checks include: 
 
 ### Connectivity
 * Is the Mac connected to a wifi network? ✅
@@ -55,3 +62,11 @@ Error log:
 * Is there an Installer on disk already? "/Applications/Install $targetOS.app" ✅
 * Is the startosinstall binary available the installer too? ✅
  
+### Example screenshots
+Log:
+![muc - log](https://raw.githubusercontent.com/stumcd/muc/main/README_Resources/example.png)
+
+Error log:
+![muc - error_log](https://github.com/user-attachments/assets/204996b2-727e-409f-9b06-d6700618d9bd)
+
+
