@@ -264,9 +264,9 @@ else
 fi
 
 if echo "$user_approved_enrol" | grep -q "Yes (User Approved)"; then
-    echo "⚠️ This Mac _is_ enrolled in MDM (User Approved), but not via Automated Device Enrollment.." | tee -a "$log_file"
+    echo "⚠️ This Mac _is_ enrolled in MDM (User Approved), but not via Automated Device Enrollment.." | tee -a "$log_file" | tee -a "$error_log"
 else
-    echo "❌ Not MDM enrolled, not User Approved" | tee -a "$log_file"
+    echo "❌ Not MDM enrolled, not User Approved" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
 
@@ -278,7 +278,7 @@ echo "------------------------------" | tee -a "$log_file"
 mdmServerStatus=$(curl -s -o /dev/null -w "%{http_code}" "$mdmUrl")
 
 if [ "$mdmServerStatus" -eq 200 ] || [ "$mdmServerStatus" -eq 301 ]; then
-    echo "✅ MDM Server is reachable. URL: $mdmUrl. HTTP status code: $mdmServerStatus"
+    echo "✅ MDM Server is reachable. URL: $mdmUrl. HTTP status code: $mdmServerStatus" | tee -a "$log_file"
 else
     echo "❌ Failed to connect to "$mdmUrl". HTTP status code: $mdmServerStatus" | tee -a "$log_file" | tee -a "$error_log"
 fi
@@ -290,7 +290,7 @@ else
     echo "❌ Bootstrap Token NOT Escrowed" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-#  Check for macOS upgrade restrictions
+# Check for macOS upgrade restrictions
 echo "Checking for any macOS upgrade restrictions..." | tee -a "$log_file"
 
 # Check if com.apple.applicationaccess exists
@@ -299,9 +299,9 @@ if [ -f "/Library/Managed Preferences/com.apple.applicationaccess.plist" ]; then
     max_os=$(/usr/bin/defaults read /Library/Managed\ Preferences/com.apple.applicationaccess max-os-version 2>/dev/null || echo "Not found")
     
     if [ "$restrict" = "1" ]; then
-        echo "❌ Software updates are restricted by MDM (restrict-software-update = 1)." | tee -a "$log_file" "$error_log"
+        echo "❌ Software updates are restricted by MDM (restrict-software-update = 1)." | tee -a "$log_file" | tee -a "$error_log"
     elif [ "$max_os" != "Not found" ]; then
-        echo "❌ Maximum allowed macOS version: $max_os" | tee -a "$log_file" "$error_log"
+        echo "❌ Maximum allowed macOS version: $max_os" | tee -a "$log_file" | tee -a "$error_log"
     else
         echo "✅ No macOS restrictions found in com.apple.applicationaccess." | tee -a "$log_file"
     fi
@@ -314,7 +314,7 @@ if [ -f "/Library/Preferences/com.apple.SoftwareUpdate.plist" ]; then
     deferred_days=$(/usr/bin/defaults read /Library/Preferences/com.apple.SoftwareUpdate SoftwareUpdateMajorOSDeferredInstallDelay 2>/dev/null || echo "Not found")
 
     if [ "$deferred_days" != "Not found" ] && [ "$deferred_days" -gt 0 ]; then
-        echo "❌ Major macOS updates are deferred by $deferred_days days (via MDM)." | tee -a "$log_file" "$error_log"
+        echo "❌ Major macOS updates are deferred by $deferred_days days (via MDM)." | tee -a "$log_file" | tee -a "$error_log"
     else
         echo "✅ No deferral policy for macOS updates detected." | tee -a "$log_file"
     fi
@@ -340,7 +340,6 @@ if [ -z "$catalog_url" ]; then
 else
     echo "❌ Custom software update catalog URL detected: $catalog_url" | tee -a "$log_file" | tee -a "$error_log"
 fi
-
 
 ######## Checking disk volumes
 echo "------------------------------" | tee -a "$log_file"
@@ -488,8 +487,6 @@ echo "🖥  Checking existing macOS installation" | tee -a "$log_file"
 
 macos_version=$(sw_vers -productVersion)
 major_version=$(echo "$macos_version" | cut -d '.' -f 1)
-
-
 
 if [ "$major_version" -ge 11 ]; then
   echo "✅ $macos_version can upgrade to $targetOS" | tee -a "$log_file"
