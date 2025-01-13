@@ -305,18 +305,18 @@ all_volumes_present=true
 # Loop through and check for each volume
 for volume in "${volumes[@]}"; do
   if diskutil list | grep -q "$volume"; then
-    echo "✅ '$volume' Volume is present."
+    echo "✅ '$volume' Volume is present." | tee -a "$log_file"
   else
-    echo "❌ '$volume' Volume is missing."
+    echo "❌ '$volume' Volume is missing." | tee -a "$log_file" | tee -a "$error_log"
     all_volumes_present=false
   fi
 done
 
 # Final check for all volumes
 if [ "$all_volumes_present" = true ]; then
-  echo "✅ All required volumes are present."
+  echo "✅ All required volumes are present." | tee -a "$log_file"
 else
-  echo "❌ Some required volumes are missing."
+  echo "❌ Some required volumes are missing." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
 ######## Check available space
@@ -329,27 +329,35 @@ available_space=$(df / | tail -1 | awk '{print $4}')
 available_space_gb=$((available_space / 1048576))
 
 if [ "$available_space_gb" -ge 20 ]; then
-echo "--- ✅ There is enough free space (20 GB required, $available_space_gb GB available)." | tee -a "$log_file"
+  echo "--- ✅ There is enough free space (20 GB required, $available_space_gb GB available)." | tee -a "$log_file"
 else
-
-echo "--- ❌ There is not enough free space ($available_space_gb GB available, 20 GB required)." | tee -a "$log_file" | tee -a "$error_log"
+  echo "--- ❌ There is not enough free space ($available_space_gb GB available, 20 GB required)." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-######## Checking Mac hardware
+# Collect hardware information
 hardware_serial=$(system_profiler SPHardwareDataType | awk -F ": " '/Serial Number/ {print $2}')
 hardware_name=$(system_profiler SPHardwareDataType | awk -F ": " '/Model Name/ {print $2}')
-hardware_modelidentifier=$(system_profiler SPHardwareDataType | awk '/Model Identifier/ {print $3}')
-hardware_chip=$(system_profiler SPHardwareDataType | awk -F ": " '/Processor Name/ {print $2}')
-processor_name=$(system_profiler SPHardwareDataType | awk -F ": " '/Chip/ {print $2}')
+hardware_modelidentifier=$(system_profiler SPHardwareDataType | awk -F ": " '/Model Identifier/ {print $2}')
+processor_info=$(system_profiler SPHardwareDataType | awk -F ": " '/Processor Name|Chip/ {print $2}')
+
+# Detect architecture
+architecture=$(uname -m)
+
+# Check architecture
+if [ "$architecture" = "arm64" ]; then
+  echo "✅ Architecture: Apple silicon" | tee -a "$log_file"
+else
+  echo "⚠️ Architecture: Intel" | tee -a "$log_file" | tee -a "$error_log"
+fi
 
 # Display system info
 echo "-------------------------" | tee -a "$log_file"
 echo "🖥  Mac hardware:" | tee -a "$log_file"
-echo "- Serial: $hardware_serial" | tee -a "$log_file"
-echo "- Model: $hardware_name" | tee -a "$log_file"
-echo "- Model Identifier: $hardware_modelidentifier" | tee -a "$log_file"
-echo "- Chip: $hardware_chip" | tee -a "$log_file"
-echo "- Processor Name: $processor_name" | tee -a "$log_file"
+echo "Serial: ${hardware_serial:-Unknown}" | tee -a "$log_file"
+echo "Model: ${hardware_name:-Unknown}" | tee -a "$log_file"
+echo "Model Identifier: ${hardware_modelidentifier:-Unknown}" | tee -a "$log_file"
+echo "Processor Info: ${processor_info:-Unknown}" | tee -a "$log_file"
+
 
 #### Check compatibility
 echo "-------------------------" | tee -a "$log_file"
@@ -416,11 +424,6 @@ else
     echo "--- ❌ This Mac is not compatible with $targetOS." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-if [ "$(uname -m)" = "arm64" ]; then
-  echo "--- ✅ Architecture: Apple silicon" | tee -a "$log_file"
-else
-  echo "--- ⚠️ A️rchitecture: Intel️" | tee -a "$log_file" | tee -a "$error_log"
-fi
 
 # Check what version of macOS is currently installed
 echo "-------------------------" | tee -a "$log_file"
