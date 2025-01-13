@@ -47,10 +47,10 @@ error_log="$log_dir/macupgradechaperone_${timestamp}.error.log"
 ##         Step 1 - Checks        ##
 ####################################
 
-echo "========= 🖥️ 🤵 Mac Upgrade Chaperone v0.6🤵 🖥️ =========" | tee -a "$log_file"
-
 echo "Log: $log_file" | tee -a "$log_file"
 echo "Error log: $error_log" | tee -a "$log_file"
+
+echo "========= 🖥️ 🤵 Mac Upgrade Chaperone v0.6🤵 🖥️ =========" | tee -a "$log_file"
 
 ## Use the target version specified by script parameters, will use default if not specified
 
@@ -61,12 +61,15 @@ echo "Error log: $error_log" | tee -a "$log_file"
 targetOS="macOS Sonoma"
 
 if [[ -n $targetOS ]]; then
-    echo "Jamf Pro script parameters were not detected, so falling back to default." | tee -a "$log_file"
+    echo "-------------------------" | tee -a "$log_file"
+    echo "- Jamf Pro script parameters were not detected, so falling back to default." | tee -a "$log_file"
     targetOS="macOS Sonoma"
-    echo "🎯 Target version set to default: $targetOS" | tee -a "$log_file"
+    echo "🎯 Target version set: $targetOS" | tee -a "$log_file"
 else
     echo "🎯 Target version set by Jamf Pro script parameters: $targetOS" | tee -a "$log_file"
 fi
+
+echo "-------------------------" | tee -a "$log_file"
 
 echo "🌐 Checking network connection..." | tee -a "$log_file"
 
@@ -255,13 +258,13 @@ ade_enrolled=$(profiles status -type enrollment)
 user_approved_enrol=$(profiles status -type enrollment)
 
 if echo "$ade_enrolled" | grep -q "Enrolled via DEP: Yes"; then
-    echo "✅ This Mac was enrolled using Automated Device Enrollment." | tee -a "$log_file"
+    echo "✅ This Mac was enrolled using Automated Device Enrollment" | tee -a "$log_file"
 else
-    echo "❌ This Mac was not enrolled via Automated Device Enrollment." | tee -a "$log_file" | tee -a "$error_log"
+    echo "❌ This Mac was not enrolled via Automated Device Enrollment" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
 if echo "$user_approved_enrol" | grep -q "Yes (User Approved)"; then
-    echo "⚠️ This Mac *is* enrolled in MDM (User Approved), not via Automated Device Enrollment.." | tee -a "$log_file"
+    echo "⚠️ This Mac _is_ enrolled in MDM (User Approved), but not via Automated Device Enrollment.." | tee -a "$log_file"
 else
     echo "❌ Not MDM enrolled, not User Approved" | tee -a "$log_file"
 fi
@@ -269,7 +272,7 @@ fi
 
 # Check if we can reach MDM server
 echo "------------------------------" | tee -a "$log_file"
-echo "Checking MDM Server..." | tee -a "$log_file" 
+echo "⚙️  Checking MDM Server..." | tee -a "$log_file" 
 echo "------------------------------" | tee -a "$log_file"
 
 mdmServerStatus=$(curl -s -o /dev/null -w "%{http_code}" "$mdmUrl")
@@ -282,7 +285,7 @@ fi
 
 # Check if Bootstrap Token has been escrowed
 if profiles status -type bootstraptoken | grep -q "Bootstrap Token escrowed to server: YES"; then
-    echo "✅ Bootstrap Token: Escrowed" | tee -a "$log_file"
+    echo "✅ Bootstrap Token has been escrowed" | tee -a "$log_file"
 else
     echo "❌ Bootstrap Token NOT Escrowed" | tee -a "$log_file" | tee -a "$error_log"
 fi
@@ -582,6 +585,8 @@ echo "$MESSAGE" | tee -a "$log_file"
 ####################################
 #       Wrap Up & Farewell         #
 ####################################
+
+echo "-------------------------" | tee -a "$log_file"
 
 echo "Best of luck on your upgrade journey! Bon voyage! 👋" | tee -a "$log_file"
 echo "Completed time: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file"
