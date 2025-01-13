@@ -147,26 +147,35 @@ check_secure_token() {
 echo "Checking local user accounts for admin/standard roles and Secure Token status..." | tee -a "$log_file"
 
 # Get a list of local user accounts
-user_list=$(dscl . list /Users | grep -vE '^_|daemon|nobody|root|com.apple')
+user_list=$(dscl . list /Users | grep -vE '^_|daemon|nobody|root|com.apple|jamf|remote')
 
 # Loop through each user
 for user in $user_list; do
-    # Check if the user is an admin
-    is_admin=$(dscl . read /Groups/admin GroupMembership | grep -q "\\b$user\\b" && echo "Admin" || echo "Standard User")
+    # Skip system accounts
+    if id "$user" >/dev/null 2>&1; then
+        # Check if the user is an admin
+        is_admin=$(dscl . read /Groups/admin GroupMembership | grep -q "\\b$user\\b" && echo "Admin" || echo "Standard User")
 
-    # Check Secure Token status
-    secure_token_status=$(check_secure_token "$user")
+        # Check Secure Token status
+        secure_token_status=$(sysadminctl -secureTokenStatus "$user" 2>&1)
+        if echo "$secure_token_status" | grep -q "ENABLED"; then
+            token_status="Secure Token: ENABLED"
+        elif echo "$secure_token_status" | grep -q "DISABLED"; then
+            token_status="Secure Token: DISABLED"
+        else
+            token_status="Secure Token: UNKNOWN (could not determine)"
+        fi
 
-    # Log the results
-    echo "User: $user" | tee -a "$log_file"
-    echo "Role: $is_admin" | tee -a "$log_file"
-    echo "$secure_token_status" | tee -a "$log_file"
-    echo "---" | tee -a "$log_file"
+        # Log the results
+        echo "User: $user" | tee -a "$log_file"
+        echo "Role: $is_admin" | tee -a "$log_file"
+        echo "$token_status" | tee -a "$log_file"
+        echo "---" | tee -a "$log_file"
+    fi
 done
 
 # Final log entry
 echo "User account check completed." | tee -a "$log_file"
-
 ### Check whether Mac is managed or not
 
 # Check if there's an MDM profile installed 
