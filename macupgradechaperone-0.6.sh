@@ -150,7 +150,7 @@ check_secure_token() {
 echo "Checking local user accounts for admin/standard roles and Secure Token status..." | tee -a "$log_file"
 
 # Get a list of local user accounts (excluding system accounts)
-user_list=$(dscl . list /Users | awk '($1 !~ /^_|daemon|nobody|root|com.apple)')
+user_list=$(dscl . list /Users | awk '($1 !~ /^_|daemon|nobody|root|com.apple/)')
 
 # Loop through each user
 while IFS= read -r user; do
