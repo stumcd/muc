@@ -149,15 +149,19 @@ check_secure_token() {
 # Start logging
 echo "Checking local user accounts for admin/standard roles and Secure Token status..." | tee -a "$log_file"
 
-# Get a list of local user accounts
-user_list=$(dscl . list /Users | grep -vE '^_|daemon|nobody|root|com.apple|jamf|remote')
+# Get a list of local user accounts (excluding system accounts)
+user_list=$(dscl . list /Users | awk '($1 !~ /^_|daemon|nobody|root|com.apple)')
 
 # Loop through each user
-for user in $user_list; do
-    # Skip system accounts
+while IFS= read -r user; do
+    # Ensure the user exists
     if id "$user" >/dev/null 2>&1; then
         # Check if the user is an admin
-        is_admin=$(dscl . read /Groups/admin GroupMembership | grep -q "\\b$user\\b" && echo "Admin" || echo "Standard User")
+        if dscl . read /Groups/admin GroupMembership 2>/dev/null | grep -qw "$user"; then
+            is_admin="Admin"
+        else
+            is_admin="Standard User"
+        fi
 
         # Check Secure Token status
         secure_token_status=$(sysadminctl -secureTokenStatus "$user" 2>&1)
@@ -170,12 +174,14 @@ for user in $user_list; do
         fi
 
         # Log the results
-        echo "User: $user" | tee -a "$log_file"
-        echo "Role: $is_admin" | tee -a "$log_file"
-        echo "$token_status" | tee -a "$log_file"
-        echo "---" | tee -a "$log_file"
+        {
+            echo "User: $user"
+            echo "Role: $is_admin"
+            echo "$token_status"
+            echo "---"
+        } | tee -a "$log_file"
     fi
-done
+done <<< "$user_list"
 
 # Final log entry
 echo "User account check completed." | tee -a "$log_file"
