@@ -7,8 +7,15 @@
 # Created: 14-09-24
 # -----------------------------------------------------
 # Version: 0.6
-# Modified: 12-01-25
+# Modified: 16-01-25
 # -----------------------------------------------------
+
+
+## Directory for the log file and error log
+log_dir="/usr/local/muc"
+
+## Target macOS version
+targetOS="macOS Sequoia"
 
 
 ####################################
@@ -21,9 +28,6 @@ if [ "$(id -u)" -ne 0 ]; then
     echo "Sorry, this script must be run as root. Sudo bang bang!" >&2
     exit 1
 fi
-
-## Define the directory for the log file and error log
-log_dir="/usr/local/muc"
 
 ## Create the directory if it doesn't exist
 # Ensure the current user has ownership
@@ -54,19 +58,27 @@ echo "========= 🖥️ 🤵 Mac Upgrade Chaperone v0.6🤵 🖥️ =========" |
 
 ## Use the target version specified by script parameters, will use default if not specified
 
-## Jamf Pro script parameters:
-#targetOS=$5
+# CHECK TO SEE IF A VALUE WAS PASSED IN PARAMETER 4 AND, IF SO, ASSIGN TO "targetOS"
 
-## Testing - hard-coded value:
-targetOS="macOS Sonoma"
+if [[ "$4" != "" ]] && [[ "$targetOS" == "" ]]
+then
+    targetOS=$4
+fi
+
+# CHECK TO SEE IF A VALUE WAS PASSED IN PARAMETER 5 AND, IF SO, ASSIGN TO "log_dir"
+
+if [[ "$5" != "" ]] && [[ "$log_dir" == "" ]]
+then
+    log_dir=$5
+fi
 
 if [[ -n $targetOS ]]; then
     echo "-------------------------" | tee -a "$log_file"
-    echo "- Jamf Pro script parameters were not detected, so falling back to default." | tee -a "$log_file"
-    targetOS="macOS Sonoma"
-    echo "🎯 Target version set: $targetOS" | tee -a "$log_file"
+    echo "- Jamf Pro script parameters were not detected, so falling back to latest major release." | tee -a "$log_file"
+    targetOS="macOS Sequoia"
+    echo "🎯 Target version: $targetOS" | tee -a "$log_file"
 else
-    echo "🎯 Target version set by Jamf Pro script parameters: $targetOS" | tee -a "$log_file"
+    echo "🎯 Target version: $targetOS" | tee -a "$log_file"
 fi
 
 echo "-------------------------" | tee -a "$log_file"
@@ -423,8 +435,8 @@ else
 fi
 
 #### Check compatibility
-
-compatible_models=(
+# Define macOS Sonoma compatibility models
+sonoma_compatible_models=(
   "MacBookAir8,1"  # MacBook Air (Retina, 13-inch, 2018)
   "MacBookAir9,1"  # MacBook Air (Retina, 13-inch, 2019)
   "MacBookAir10,1" # MacBook Air (M1, 2020)
@@ -443,47 +455,69 @@ compatible_models=(
   "MacBookPro18,3" # MacBook Pro (14-inch, M1 Pro/Max, 2021)
   "MacBookPro15,13" # MacBook Pro (14-inch, M3, Nov 2023)
   "MacBookPro15,14" # MacBook Pro (16-inch, M3, Nov 2023)
-  "MacBookPro16,7" # MacBook Pro (16-inch, M2, 2023)
-  "MacBookPro15,6" # MacBook Pro (14-inch, M2 Pro, 2023)
-  "MacBookPro15,7" # MacBook Pro (16-inch, M2 Pro, 2023)
-  "MacBookPro15,8" # MacBook Pro (14-inch, M2 Max, 2023)
-  "MacBookPro15,10" # MacBook Pro (16-inch, M2 Max, 2023)
-  "MacBookPro15,11" # MacBook Pro (14-inch, M3, 2024)
-  "MacBookPro15,9"  # MacBook Pro (16-inch, M3, 2024)
-  "MacBookPro16,1" # MacBook Pro (13-inch, M2, 2024)
-  "MacBookPro16,5" # MacBook Pro (14-inch, M2, 2024)
-  "MacBookPro16,6" # MacBook Pro (16-inch, M2, 2024)
-  "MacBookPro16,8" # MacBook Pro (M3, 2024)
-
   "Macmini8,1"     # Mac mini (2018)
   "Macmini9,1"     # Mac mini (M1, 2020)
   "Macmini10,1"    # Mac mini (M2, 2023)
-
   "iMac19,1"       # iMac (Retina 5K, 27-inch, 2019)
   "iMac19,2"       # iMac (Retina 4K, 21.5-inch, 2019)
   "iMac20,1"       # iMac (Retina 5K, 27-inch, 2020)
   "iMac21,1"       # iMac (24-inch, M1, 2021)
-
   "iMacPro1,1"     # iMac Pro (2017)
-
   "MacPro7,1"      # Mac Pro (2019)
   "MacPro8,1"      # Mac Pro (M2 Ultra, 2023)
-
   "Mac14,3"        # Mac Studio (M1 Max, 2022)
   "Mac14,12"       # Mac Studio (M1 Ultra, 2022)
   "Mac14,13"       # Mac Studio (M2 Max, 2023)
   "Mac14,14"       # Mac Studio (M2 Ultra, 2023)
-
 )
 
+# Define macOS Sequoia compatibility models
+sequoia_compatible_models=(
+  "MacBookAir10,1"  # MacBook Air (M1, 2020)
+  "MacBookAir14,2"  # MacBook Air (13-inch, M2, 2022)
+  "MacBookAir14,15" # MacBook Air (15-inch, M2, 2023)
+  "MacBookAir15,1"  # MacBook Air (13-inch, M3, 2024)
+  "MacBookAir15,2"  # MacBook Air (15-inch, M3, 2024)
+  "MacBookPro17,1"  # MacBook Pro (13-inch, M1, 2020)
+  "MacBookPro18,1"  # MacBook Pro (16-inch, M1 Pro/Max, 2021)
+  "MacBookPro18,3"  # MacBook Pro (14-inch, M1 Pro/Max, 2021)
+  "MacBookPro15,13" # MacBook Pro (14-inch, M3, Nov 2023)
+  "MacBookPro15,14" # MacBook Pro (16-inch, M3, Nov 2023)
+  "MacBookPro15,6"  # MacBook Pro (14-inch, M2 Pro, 2023)
+  "MacBookPro15,7"  # MacBook Pro (16-inch, M2 Pro, 2023)
+  "MacBookPro15,8"  # MacBook Pro (14-inch, M2 Max, 2023)
+  "MacBookPro15,10" # MacBook Pro (16-inch, M2 Max, 2023)
+  "MacBookPro15,11" # MacBook Pro (14-inch, M3, 2024)
+  "MacBookPro15,9"  # MacBook Pro (16-inch, M3, 2024)
+  "Macmini9,1"      # Mac mini (M1, 2020)
+  "Macmini10,1"     # Mac mini (M2, 2023)
+  "Macmini10,2"     # Mac mini (M3, 2024)
+  "iMac21,1"        # iMac (24-inch, M1, 2021)
+  "iMac21,2"        # iMac (24-inch, M3, 2024)
+  "MacPro8,1"       # Mac Pro (M2 Ultra, 2023)
+  "Mac14,13"        # Mac Studio (M2 Max, 2023)
+  "Mac14,14"        # Mac Studio (M2 Ultra, 2023)
+  "Mac14,15"        # Mac Studio (M3 Max, 2024)
+  "Mac14,16"        # Mac Studio (M3 Ultra, 2024)
+)
 
-# Check if the hardware model is in the list of compatible models
+# Check compatibility based on targetOS
 echo "-------------------------" | tee -a "$log_file"
 
+if [[ "$targetOS" == "macOS Sonoma" ]]; then
+    compatible_models=("${sonoma_compatible_models[@]}")
+elif [[ "$targetOS" == "macOS Sequoia" ]]; then
+    compatible_models=("${sequoia_compatible_models[@]}")
+else
+    echo "❌ Unknown macOS version: $targetOS" | tee -a "$log_file" | tee -a "$error_log"
+    exit 1
+fi
+
+# Check if the hardware model is in the list of compatible models
 if [[ " ${compatible_models[@]} " =~ " $hardware_modelidentifier " ]]; then
     echo "✅ Compatible with $targetOS" | tee -a "$log_file"
 else
-    echo "❌ This Mac is not compatible with $targetOS." | tee -a "$log_file" | tee -a "$error_log"
+    echo "❌ ${hardware_modelidentifier:-Unknown} is not compatible with $targetOS." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
 
