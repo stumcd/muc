@@ -15,7 +15,7 @@
 log_dir="/usr/local/muc"
 
 ## Target macOS version
-targetOS="macOS Sequoia"
+targetOS=""
 
 
 ####################################
@@ -56,17 +56,15 @@ echo "Error log: $error_log" | tee -a "$log_file"
 
 echo "========= 🖥️ 🤵 Mac Upgrade Chaperone v0.6🤵 🖥️ =========" | tee -a "$log_file"
 
-## Use the target version specified by script parameters, will use default if not specified
+## Use the target version and log directory specified by script parameters, if present
 
 # CHECK TO SEE IF A VALUE WAS PASSED IN PARAMETER 4 AND, IF SO, ASSIGN TO "targetOS"
-
 if [[ "$4" != "" ]] && [[ "$targetOS" == "" ]]
 then
     targetOS=$4
 fi
 
 # CHECK TO SEE IF A VALUE WAS PASSED IN PARAMETER 5 AND, IF SO, ASSIGN TO "log_dir"
-
 if [[ "$5" != "" ]] && [[ "$log_dir" == "" ]]
 then
     log_dir=$5
@@ -74,9 +72,9 @@ fi
 
 if [[ -n $targetOS ]]; then
     echo "-------------------------" | tee -a "$log_file"
-    echo "- Jamf Pro script parameters were not detected, so falling back to latest major release." | tee -a "$log_file"
+    echo "macOS target version not defined, so defaulting to latest major release." | tee -a "$log_file"
     targetOS="macOS Sequoia"
-    echo "🎯 Target version: $targetOS" | tee -a "$log_file"
+    echo "🎯 Target version (default): $targetOS" | tee -a "$log_file"
 else
     echo "🎯 Target version: $targetOS" | tee -a "$log_file"
 fi
@@ -282,9 +280,9 @@ else
 fi
 
 if echo "$user_approved_enrol" | grep -q "Yes (User Approved)"; then
-    echo "⚠️ This Mac _is_ enrolled in MDM (User Approved), but not via Automated Device Enrollment.." | tee -a "$log_file" | tee -a "$error_log"
+    echo "⚠️ This Mac is enrolled in MDM (User Approved)" | tee -a "$log_file" | tee -a "$error_log"
 else
-    echo "❌ Not MDM enrolled, not User Approved" | tee -a "$log_file" | tee -a "$error_log"
+    echo "❌ Not enrolled in MDM" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
 
