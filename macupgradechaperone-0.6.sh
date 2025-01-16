@@ -11,22 +11,42 @@
 # -----------------------------------------------------
 
 
-## Directory for the log file and error log
+## Directory to write the log file and error log to
 log_dir="/usr/local/muc"
 
 ## Target macOS version
 targetOS=""
 
-
 ####################################
 #               Config             #
 ####################################
 
-
-## Check if script has been run as root
+## Check if script has been run as root. If not, exit.
 if [ "$(id -u)" -ne 0 ]; then
     echo "Sorry, this script must be run as root. Sudo bang bang!" >&2
     exit 1
+fi
+
+## Use the target version and log directory specified by script parameters, if present
+
+# CHECK TO SEE IF A VALUE WAS PASSED IN PARAMETER 4 AND, IF SO, ASSIGN TO "targetOS"
+if [[ "$4" != "" ]] && [[ "$targetOS" == "" ]]
+then
+    targetOS=$4
+fi
+
+# CHECK TO SEE IF A VALUE WAS PASSED IN PARAMETER 5 AND, IF SO, ASSIGN TO "log_dir"
+if [[ "$5" != "" ]] && [[ "$log_dir" == "" ]]
+then
+    log_dir=$5
+fi
+
+if [[ -z $targetOS ]]; then
+    echo "macOS target version not defined, so defaulting to latest major release." | tee -a "$log_file"
+    targetOS="macOS Sequoia"
+    echo "🎯 Target version (default): $targetOS" | tee -a "$log_file"
+else
+    echo "🎯 Target version: $targetOS" | tee -a "$log_file"
 fi
 
 ## Create the directory if it doesn't exist
@@ -46,6 +66,8 @@ log_file="$log_dir/macupgradechaperone_${timestamp}.log"
 ## Write to a new error log file for each run, appended with timestamp
 error_log="$log_dir/macupgradechaperone_${timestamp}.error.log"
 
+echo "-------------------------" | tee -a "$log_file"
+
 
 ####################################
 ##         Step 1 - Checks        ##
@@ -54,32 +76,16 @@ error_log="$log_dir/macupgradechaperone_${timestamp}.error.log"
 echo "Log: $log_file" | tee -a "$log_file"
 echo "Error log: $error_log" | tee -a "$log_file"
 
+#echo "Debug: Parameter 4: '$4'" | tee -a "$log_file"
+#echo "Debug: Parameter 5: '$5'" | tee -a "$log_file"
+
 echo "========= 🖥️ 🤵 Mac Upgrade Chaperone v0.6🤵 🖥️ =========" | tee -a "$log_file"
 
-## Use the target version and log directory specified by script parameters, if present
-
-# CHECK TO SEE IF A VALUE WAS PASSED IN PARAMETER 4 AND, IF SO, ASSIGN TO "targetOS"
-if [[ "$4" != "" ]] && [[ "$targetOS" == "" ]]
-then
-    targetOS=$4
-fi
-
-# CHECK TO SEE IF A VALUE WAS PASSED IN PARAMETER 5 AND, IF SO, ASSIGN TO "log_dir"
-if [[ "$5" != "" ]] && [[ "$log_dir" == "" ]]
-then
-    log_dir=$5
-fi
-
-if [[ -n $targetOS ]]; then
-    echo "-------------------------" | tee -a "$log_file"
-    echo "macOS target version not defined, so defaulting to latest major release." | tee -a "$log_file"
-    targetOS="macOS Sequoia"
-    echo "🎯 Target version (default): $targetOS" | tee -a "$log_file"
-else
-    echo "🎯 Target version: $targetOS" | tee -a "$log_file"
-fi
-
 echo "-------------------------" | tee -a "$log_file"
+
+
+
+
 
 echo "🌐 Checking network connection..." | tee -a "$log_file"
 
@@ -143,63 +149,35 @@ echo "-------------------------" | tee -a "$log_file"
 echo "----- Guiding your journey to... ✨ $targetOS ✨ -----" | tee -a "$log_file"
 echo "-------------------------" | tee -a "$log_file"
 
+
 echo "Start time: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file" 
+echo "=========================================" | tee -a "$log_file"
 
-# Function to check if a user has a Secure Token
-check_secure_token() {
-    local user="$1"
-    sysadminctl -secureTokenStatus "$user" 2>&1 | grep -q "ENABLED"
-    if [ $? -eq 0 ]; then
-        echo "Secure Token: ENABLED"
-    else
-        echo "Secure Token: DISABLED"
-    fi
-}
+# Collect hardware info
+architecture=$(uname -m)
+hardware_serial=$(system_profiler SPHardwareDataType | awk -F ": " '/Serial Number/ {print $2}')
+hardware_name=$(system_profiler SPHardwareDataType | awk -F ": " '/Model Name/ {print $2}')
+hardware_modelidentifier=$(system_profiler SPHardwareDataType | awk -F ": " '/Model Identifier/ {print $2}')
+processor_info=$(system_profiler SPHardwareDataType | awk -F ": " '/Processor Name|Chip/ {print $2}')
 
-# Start logging
-echo "Checking local user accounts for admin/standard roles and Secure Token status..." | tee -a "$log_file"
+# Display hardware info
+echo "------------------------------" | tee -a "$log_file"
+echo "🖥  Mac hardware:" | tee -a "$log_file"
+if [ "$architecture" = "arm64" ]; then
+  echo "Architecture: Apple silicon" | tee -a "$log_file"
+else
+  echo "⚠️ Architecture: Intel" | tee -a "$log_file" | tee -a "$error_log"
+fi
+echo "Serial: ${hardware_serial:-Unknown}" | tee -a "$log_file"
+echo "Model: ${hardware_name:-Unknown}" | tee -a "$log_file"
+echo "Model Identifier: ${hardware_modelidentifier:-Unknown}" | tee -a "$log_file"
+echo "Processor Info: ${processor_info:-Unknown}" | tee -a "$log_file"
 
-# Get a list of local user accounts (excluding system accounts)
-user_list=$(dscl . list /Users | awk '($1 !~ /^_|daemon|nobody|root|com.apple/)')
 
-# Loop through each user
-while IFS= read -r user; do
-    # Ensure the user exists
-    if id "$user" >/dev/null 2>&1; then
-        # Check if the user is an admin
-        if dscl . read /Groups/admin GroupMembership 2>/dev/null | grep -qw "$user"; then
-            is_admin="Admin"
-        else
-            is_admin="Standard User"
-        fi
-
-        # Check Secure Token status
-        secure_token_status=$(sysadminctl -secureTokenStatus "$user" 2>&1)
-        if echo "$secure_token_status" | grep -q "ENABLED"; then
-            token_status="Secure Token: ENABLED"
-        elif echo "$secure_token_status" | grep -q "DISABLED"; then
-            token_status="Secure Token: DISABLED"
-        else
-            token_status="Secure Token: UNKNOWN (could not determine)"
-        fi
-
-        # Log the results
-        {
-            echo "User: $user"
-            echo "Role: $is_admin"
-            echo "$token_status"
-            echo "---"
-        } | tee -a "$log_file"
-    fi
-done <<< "$user_list"
-
-# Final log entry
-echo "User account check completed." | tee -a "$log_file"
-### Check whether Mac is managed or not
 
 # Check if there's an MDM profile installed 
 echo "------------------------------" | tee -a "$log_file"
-echo "⚙️  Checking MDM enrollment..." | tee -a "$log_file"
+echo "⚙️  Checking MDM profile..." | tee -a "$log_file"
 echo "------------------------------" | tee -a "$log_file"
 
 mdm_profile=$(profiles status -type enrollment)
@@ -207,7 +185,7 @@ mdm_profile=$(profiles status -type enrollment)
 if [[ "$mdm_profile" == *"MDM enrollment: Yes"* ]]; then
   echo "✅ MDM Profile: Installed." | tee -a "$log_file"
   mdmUrl=$(system_profiler SPConfigurationProfileDataType | awk -F'[/:?]' '/CheckInURL/ {print $4}')
-  echo "--- MDM Server: $mdmUrl" | tee -a "$log_file"
+  echo "ℹ️ MDM Server: $mdmUrl" | tee -a "$log_file"
 fi
  
 if [[ "$mdm_profile" == *"MDM enrollment: No"* ]]; then
@@ -294,7 +272,7 @@ echo "------------------------------" | tee -a "$log_file"
 mdmServerStatus=$(curl -s -o /dev/null -w "%{http_code}" "$mdmUrl")
 
 if [ "$mdmServerStatus" -eq 200 ] || [ "$mdmServerStatus" -eq 301 ]; then
-    echo "✅ MDM Server is reachable. URL: $mdmUrl. HTTP status code: $mdmServerStatus" | tee -a "$log_file"
+    echo "✅ MDM Server is reachable.mdmUrl returnd HTTP status code: $mdmServerStatus" | tee -a "$log_file"
 else
     echo "❌ Failed to connect to "$mdmUrl". HTTP status code: $mdmServerStatus" | tee -a "$log_file" | tee -a "$error_log"
 fi
@@ -303,11 +281,14 @@ fi
 if profiles status -type bootstraptoken | grep -q "Bootstrap Token escrowed to server: YES"; then
     echo "✅ Bootstrap Token has been escrowed" | tee -a "$log_file"
 else
-    echo "❌ Bootstrap Token NOT Escrowed" | tee -a "$log_file" | tee -a "$error_log"
+    echo "❌ Bootstrap Token has NOT been escrowed" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
+echo "-----" | tee -a "$log_file"
+
+
 # Check for macOS upgrade restrictions
-echo "Checking for any macOS upgrade restrictions..." | tee -a "$log_file"
+echo "Checking for any managed configuration preventing macOS upgrades..." | tee -a "$log_file"
 
 # Check if com.apple.applicationaccess exists
 if [ -f "/Library/Managed Preferences/com.apple.applicationaccess.plist" ]; then
@@ -396,41 +377,12 @@ available_space=$(df / | tail -1 | awk '{print $4}')
 available_space_gb=$((available_space / 1048576))
 
 if [ "$available_space_gb" -ge 20 ]; then
-  echo "--- ✅ There is enough free space (20 GB required, $available_space_gb GB available)." | tee -a "$log_file"
+  echo "✅ There is enough free space (20 GB required, $available_space_gb GB available)." | tee -a "$log_file"
 else
-  echo "--- ❌ There is not enough free space ($available_space_gb GB available, 20 GB required)." | tee -a "$log_file" | tee -a "$error_log"
+  echo "❌ There is not enough free space ($available_space_gb GB available, 20 GB required)." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-# Collect hardware information
-hardware_serial=$(system_profiler SPHardwareDataType | awk -F ": " '/Serial Number/ {print $2}')
-hardware_name=$(system_profiler SPHardwareDataType | awk -F ": " '/Model Name/ {print $2}')
-hardware_modelidentifier=$(system_profiler SPHardwareDataType | awk -F ": " '/Model Identifier/ {print $2}')
-processor_info=$(system_profiler SPHardwareDataType | awk -F ": " '/Processor Name|Chip/ {print $2}')
 
-# Detect architecture
-architecture=$(uname -m)
-
-# Check architecture
-if [ "$architecture" = "arm64" ]; then
-  echo "✅ Architecture: Apple silicon" | tee -a "$log_file"
-else
-  echo "⚠️ Architecture: Intel" | tee -a "$log_file" | tee -a "$error_log"
-fi
-
-# Display system info
-echo "------------------------------" | tee -a "$log_file"
-echo "🖥  Mac hardware:" | tee -a "$log_file"
-echo "Serial: ${hardware_serial:-Unknown}" | tee -a "$log_file"
-echo "Model: ${hardware_name:-Unknown}" | tee -a "$log_file"
-echo "Model Identifier: ${hardware_modelidentifier:-Unknown}" | tee -a "$log_file"
-echo "Processor Info: ${processor_info:-Unknown}" | tee -a "$log_file"
-
-
-if [ "$(uname -m)" = "arm64" ]; then
-  echo "✅ Architecture: Apple silicon" | tee -a "$log_file"
-else
-  echo "⚠️  A️rchitecture: Intel️" | tee -a "$log_file" | tee -a "$error_log"
-fi
 
 #### Check compatibility
 # Define macOS Sonoma compatibility models
@@ -559,6 +511,58 @@ if [ -d "$installer_path" ]; then
 else
   echo "❌ $targetOS installer was not found in /Applications" | tee -a "$log_file" | tee -a "$error_log"
 fi
+
+#### Secure Token & user attributes checks
+
+# Function to check if a user has a Secure Token
+check_secure_token() {
+    local user="$1"
+    sysadminctl -secureTokenStatus "$user" 2>&1 | grep -q "ENABLED"
+    if [ $? -eq 0 ]; then
+        echo "Secure Token: ENABLED"
+    else
+        echo "Secure Token: DISABLED"
+    fi
+}
+
+echo "-------------------------" | tee -a "$log_file"
+echo "👤 Checking user accounts for role and Secure Token status (excluding system accounts)..." | tee -a "$log_file"
+echo "-------------------------" | tee -a "$log_file"
+
+# Get a list of local user accounts (excluding system accounts)
+user_list=$(dscl . list /Users | awk '($1 !~ /^_|daemon|nobody|root|com.apple/)')
+
+# Loop through each user
+while IFS= read -r user; do
+    # Ensure the user exists
+    if id "$user" >/dev/null 2>&1; then
+        # Check if the user is an admin
+        if dscl . read /Groups/admin GroupMembership 2>/dev/null | grep -qw "$user"; then
+            is_admin="Admin"
+        else
+            is_admin="Standard User"
+        fi
+
+        # Check Secure Token status
+        secure_token_status=$(sysadminctl -secureTokenStatus "$user" 2>&1)
+        if echo "$secure_token_status" | grep -q "ENABLED"; then
+            token_status="Secure Token: ENABLED"
+        elif echo "$secure_token_status" | grep -q "DISABLED"; then
+            token_status="Secure Token: DISABLED"
+        else
+            token_status="Secure Token: UNKNOWN (could not determine)"
+        fi
+
+        # Log the results
+        {
+            echo "User: $user"
+            echo "Role: $is_admin"
+            echo "$token_status"
+            echo "---"
+        } | tee -a "$log_file"
+    fi
+done <<< "$user_list"
+
 
 
 echo "-------------------------" | tee -a "$log_file"
