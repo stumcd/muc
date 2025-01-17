@@ -73,10 +73,6 @@ if [[ -n "$6" ]] && [[ -z "$silent_mode" ]]; then
     silent_mode="$6"
 fi
 
-#### Debug
-echo "targetOS: $targetOS"
-echo "log_dir: $log_dir"
-echo "silent_mode: $silent_mode"
 
 
 ####################################
@@ -111,6 +107,12 @@ error_log="$log_dir/macupgradechaperone_${timestamp}.error.log"
 echo "==========================================================" | tee -a "$log_file"
 echo "========= 🖥️ 🤵 Mac Upgrade Chaperone v0.6🤵 🖥️ ===========" | tee -a "$log_file"
 echo "==========================================================" | tee -a "$log_file"
+
+#### Debug
+#echo "targetOS: $targetOS"
+#echo "log_dir: $log_dir"
+#echo "silent_mode: $silent_mode"
+
 
 if [[ -z $targetOS ]]; then
     echo "macOS target version not defined, so defaulting to latest major release." | tee -a "$log_file"
@@ -591,11 +593,12 @@ check_secure_token() {
 }
 
 echo "-------------------------" | tee -a "$log_file"
-echo "👤 Checking user accounts..." | tee -a "$log_file"
+echo "👤 Checking which users have admin role + are Secure Token enabled..." | tee -a "$log_file"
 echo "-------------------------" | tee -a "$log_file"
 
 # Get a list of local user accounts (excluding system accounts)
 user_list=$(dscl . list /Users | awk '($1 !~ /^_|daemon|nobody|root|com.apple/)')
+
 
 # Loop through each user
 while IFS= read -r user; do
@@ -603,32 +606,25 @@ while IFS= read -r user; do
     if id "$user" >/dev/null 2>&1; then
         # Check if the user is an admin
         if dscl . read /Groups/admin GroupMembership 2>/dev/null | grep -qw "$user"; then
-            is_admin="Admin"
-        else
-            is_admin="Standard User"
+            # Check Secure Token status
+            secure_token_status=$(sysadminctl -secureTokenStatus "$user" 2>&1)
+            if echo "$secure_token_status" | grep -q "ENABLED"; then
+                # Retrieve home directory and UID
+                home_directory=$(dscl . -read "/Users/$user" NFSHomeDirectory | awk '{print $2}')
+                user_uid=$(id -u "$user")
+                
+                # Log the results for admin users with Secure Token enabled
+                {
+                    echo "User: $user"
+                    echo "      Admin"
+                    echo "      Secure Token enabled"
+                    echo "      Home Directory: $home_directory"
+                    echo "      UID: $user_uid"
+                } | tee -a "$log_file"
+            fi
         fi
-
-        # Check Secure Token status
-        secure_token_status=$(sysadminctl -secureTokenStatus "$user" 2>&1)
-        if echo "$secure_token_status" | grep -q "ENABLED"; then
-            token_status="Secure Token: ENABLED"
-        elif echo "$secure_token_status" | grep -q "DISABLED"; then
-            token_status="Secure Token: DISABLED"
-        else
-            token_status="Secure Token: UNKNOWN (could not determine)"
-        fi
-
-        # Log the results
-        {
-            echo "User: $user"
-            echo "Role: $is_admin"
-            echo "$token_status"
-            echo "---"
-        } | tee -a "$log_file"
     fi
 done <<< "$user_list"
-
-
 
 echo "-------------------------" | tee -a "$log_file"
 echo "Evaluation complete." | tee -a "$log_file"
@@ -766,7 +762,8 @@ else
     echo "Silent mode is enabled. No dialogs will be displayed."
 fi
 
-echo "========= 🖥️ 🤵 Mac Upgrade Chaperone suggestion... 🤵 🖥️ =========" | tee -a "$log_file"
+echo "========= 🖥️ 🤵 Mac Upgrade Chaperone 🤵 🖥️ =========" | tee -a "$log_file"
+echo "==================== Conclusion =====================" | tee -a "$log_file"
 
 echo "$MESSAGE" | tee -a "$log_file"
 
