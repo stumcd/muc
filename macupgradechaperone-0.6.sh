@@ -37,22 +37,22 @@ silent_mode=""
 
 
 # Parse CLI flags
-while [[ "$#" -gt 0 ]]; do
-    case $1 in
-        --targetOS) targetOS="$2"; shift 2 ;;
-        --log_dir) log_dir="$2"; shift 2 ;;
-        --silent_mode) silent_mode="$2"; shift 2 ;;
-        *) echo "Unknown option: $1"; exit 1 ;;
-    esac
-done
+#while [[ "$#" -gt 0 ]]; do
+#    case $1 in
+#        --targetOS) targetOS="$2"; shift 2 ;;
+#        --log_dir) log_dir="$2"; shift 2 ;;
+#        --silent_mode) silent_mode="$2"; shift 2 ;;
+#        *) echo "Unknown option: $1"; exit 1 ;;
+#    esac
+#done
 
 # Assign values to positional variables
-set -- "$targetOS" "$log_dir" "$silent_mode" "$@"
+#set -- "$targetOS" "$log_dir" "$silent_mode" "$@"
 
 # Ensure $4, $5, and $6 are assigned
-targetOS=$4
-log_dir=$5
-silent_mode=$6
+#targetOS=$4
+#log_dir=$5
+#silent_mode=$6
 
 ############################################
 #        Jamf Pro Script Parameters        #
@@ -74,9 +74,9 @@ if [[ -n "$6" ]] && [[ -z "$silent_mode" ]]; then
 fi
 
 #### Debug
-#echo "targetOS: $targetOS"
-#echo "log_dir: $log_dir"
-#echo "silent_mode: $silent_mode"
+echo "targetOS: $targetOS"
+echo "log_dir: $log_dir"
+echo "silent_mode: $silent_mode"
 
 
 ####################################
@@ -90,6 +90,11 @@ if [ ! -d "$log_dir" ]; then
   echo "The log directory '$log_dir' does not exist. Creating it now..."
   sudo mkdir -p "$log_dir"
   sudo chown $(whoami) "$log_dir"  
+fi
+
+if [[ ! -w "$log_dir" ]]; then
+    echo "Error: Log directory '$log_dir' is not writable."
+    exit 1
 fi
 
 # Get the current timestamp (format: YYYYMMDD_HHMMSS)
