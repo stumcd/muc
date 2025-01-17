@@ -82,12 +82,10 @@ log_file="$log_dir/macupgradechaperone_${timestamp}.log"
 error_log="$log_dir/macupgradechaperone_${timestamp}.error.log"
 
 
+
+echo "==========================================================" | tee -a "$log_file"
 echo "========= 🖥️ 🤵 Mac Upgrade Chaperone v0.6🤵 🖥️ =========" | tee -a "$log_file"
-
-if [ "$silent_mode" = "on" ]; then
-    echo "=========   Shhh... silent_mode is enabled. Notifications disabled, log only.   =========" | tee -a "$log_file"
-fi
-
+echo "==========================================================" | tee -a "$log_file"
 
 if [[ -z $targetOS ]]; then
     echo "macOS target version not defined, so defaulting to latest major release." | tee -a "$log_file"
@@ -99,6 +97,14 @@ fi
 
 echo "-------------------------" | tee -a "$log_file"
 
+# Check for silent_mode
+if [ "$silent_mode" = "on" ]; then
+	echo " -------------------------------------------------------------------------------------------------" | tee -a "$log_file"
+    echo "| Shhhhhhhhhhhhhhhhhh... silent_mode ENABLED.                                                     |" | tee -a "$log_file"
+    echo "| Logging only. Notifications disabled.                                                           |" | tee -a "$log_file"
+    echo "| Extension Attribute (./muc_EA.sh) included to report MUC result into Jamf Pro inventory.        |" | tee -a "$log_file"
+	echo " --------------------------------------------------------------------------------------------------" | tee -a "$log_file"
+fi
 
 ####################################
 ##         Step 1 - Checks        ##
@@ -498,7 +504,7 @@ fi
 
 # Check if the hardware model is in the list of compatible models
 if [[ " ${compatible_models[@]} " =~ " $hardware_modelidentifier " ]]; then
-    echo "✅ This model is compatible with $targetOS" | tee -a "$log_file"
+    echo "✅ This device (${hardware_modelidentifier:-Unknown}) is compatible with $targetOS" | tee -a "$log_file"
 else
     echo "❌ ${hardware_modelidentifier:-Unknown} is not compatible with $targetOS." | tee -a "$log_file" | tee -a "$error_log"
 fi
@@ -631,34 +637,41 @@ GROUP_D_ERRORS=$(grep -E "not enough free space on disk|Software updates are res
 # Group E = Notable, but won't prevent upgrading
 GROUP_E_ERRORS=$(grep -E "Intel" "$error_log")
 
-# If silent mode is NOT enabled
-if [ "$silent_mode" != "on" ]; then
 
 # Set the message and buttons based on error group and display notification using osascript
-	if [ -n "$GROUP_A_ERRORS" ]; then
-		MESSAGE="Bad news…\n\nThis Mac is not compatible with the target version of macOS ($targetOS).\n\n$GROUP_A_ERRORS"
-		osascript -e "display dialog \"$MESSAGE\" buttons {\"Compatibility Info…\", \"Quit\"} default button \"Quit\" with icon caution" \
-			-e "if button returned of result = \"Compatibility Info…\" then open location \"https://support.apple.com/en-au/105113\""
-	
-	elif [ -n "$GROUP_B_ERRORS" ]; then
-		MESSAGE="Bad news...\n\n$GROUP_B_ERRORS\n\nYou will need to erase and re-install macOS, using either Internet Recovery or Apple Configurator 2. (aka time to nuke and pave)."
-		osascript -e "display dialog \"$MESSAGE\" buttons {\"How to…\", \"Quit\"} default button \"Quit\" with icon caution" \
-			-e "if button returned of result = \"How to…\" then open location \"https://support.apple.com/en-au/guide/mac-help/mchl7676b710/15.0/mac/15.0\""
-	
-	elif [ -n "$GROUP_C_ERRORS" ]; then
-		MESSAGE="Not-so-great news...\n\n$GROUP_C_ERRORS\n\nThis Mac can be upgraded to $targetOS, but you won't be able to use MDM commands to achieve this. Recommendation: upgrade macOS via System Preferences."
-		osascript -e "display dialog \"$MESSAGE\" buttons {\"Open System Settings…\", \"Quit\"} default button \"Quit\" with icon note" \
-			-e "if button returned of result = \"Open System Settings…\" then do shell script \"open -a 'System Settings'\""
-	
-	elif [ -n "$GROUP_D_ERRORS" ]; then
-		MESSAGE="Rats.\n\n$GROUP_D_ERRORS\n\nHave a look at the above issues. Rectify these and try again. Or, just nuke and pave."
-		osascript -e "display dialog \"$MESSAGE\" buttons {\"Show error log\", \"Quit\"} default button \"Quit\" with icon stop" \
-			-e "if button returned of result = \"Show error log\" then do shell script \"open /path/to/error/log\""
-	
-	else
-		MESSAGE="Great news! All checks passed successfully. 🎉 You can upgrade this Mac via MDM. Log into your MDM server ($mdmUrl) and go from there."
-		osascript -e "display dialog \"$MESSAGE\" buttons {\"OK\"} default button \"OK\" with icon note"
-	fi
+if [ -n "$GROUP_A_ERRORS" ]; then
+    MESSAGE="Bad news…\n\nThis Mac is not compatible with the target version of macOS ($targetOS).\n\n$GROUP_A_ERRORS"
+    if [[ "$silent_mode" != "on" ]]; then
+        osascript -e "display dialog \"$MESSAGE\" buttons {\"Compatibility Info…\", \"Quit\"} default button \"Quit\" with icon caution" \
+            -e "if button returned of result = \"Compatibility Info…\" then open location \"https://support.apple.com/en-au/105113\""
+    fi
+
+elif [ -n "$GROUP_B_ERRORS" ]; then
+    MESSAGE="Bad news...\n\n$GROUP_B_ERRORS\n\nYou will need to erase and re-install macOS, using either Internet Recovery or Apple Configurator 2. (aka time to nuke and pave)."
+    if [[ "$silent_mode" != "on" ]]; then
+        osascript -e "display dialog \"$MESSAGE\" buttons {\"How to…\", \"Quit\"} default button \"Quit\" with icon caution" \
+            -e "if button returned of result = \"How to…\" then open location \"https://support.apple.com/en-au/guide/mac-help/mchl7676b710/15.0/mac/15.0\""
+    fi
+
+elif [ -n "$GROUP_C_ERRORS" ]; then
+    MESSAGE="Not-so-great news...\n\n$GROUP_C_ERRORS\n\nThis Mac can be upgraded to $targetOS, but you won't be able to use MDM commands to achieve this. Recommendation: upgrade macOS via System Preferences."
+    if [[ "$silent_mode" != "on" ]]; then
+        osascript -e "display dialog \"$MESSAGE\" buttons {\"Open System Settings…\", \"Quit\"} default button \"Quit\" with icon note" \
+            -e "if button returned of result = \"Open System Settings…\" then do shell script \"open -a 'System Settings'\""
+    fi
+
+elif [ -n "$GROUP_D_ERRORS" ]; then
+    MESSAGE="Rats.\n\n$GROUP_D_ERRORS\n\nHave a look at the above issues. Rectify these and try again. Or, just nuke and pave."
+    if [[ "$silent_mode" != "on" ]]; then
+        osascript -e "display dialog \"$MESSAGE\" buttons {\"Show error log\", \"Quit\"} default button \"Quit\" with icon stop" \
+            -e "if button returned of result = \"Show error log\" then do shell script \"open /path/to/error/log\""
+    fi
+
+else
+    MESSAGE="Great news! All checks passed successfully. 🎉 You can upgrade this Mac via MDM. Log into your MDM server ($mdmUrl) and go from there."
+    if [[ "$silent_mode" != "on" ]]; then
+        osascript -e "display dialog \"$MESSAGE\" buttons {\"OK\"} default button \"OK\" with icon note"
+    fi
 fi
 
 echo "======= MacUpgradeChaperone Conclusion ======" | tee -a "$log_file" 
@@ -673,5 +686,5 @@ echo "-------------------------" | tee -a "$log_file"
 
 echo "Best of luck on your upgrade journey! Bon voyage! 👋" | tee -a "$log_file"
 echo "Completed: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file"
-echo "=========================================" | tee -a "$log_file"
+echo "============= END =========================" | tee -a "$log_file"
 exit 0
