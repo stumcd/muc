@@ -21,14 +21,14 @@ fi
 ####################################
 
 targetOS=""
-### Description: macOS version you want to upgrade to (e.g. 'macOS Palm Springs')
+### Description: macOS version you want to upgrade to
 ### Jamf Pro parameter number: $4
-### Jamf Pro parameter name: Target macOS Version
+### Jamf Pro parameter name: Target macOS Version (e.g. 'macOS Palm Springs')
 
 log_dir="/usr/local/muc"
-### Description: Directory to create and write log files to e.g. '/usr/local/muc'
+### Description: Directory to create and write log files to 
 ### Jamf Pro parameter number: $5
-### Jamf Pro parameter name: Log directory
+### Jamf Pro parameter name: Log directory (e.g. '/usr/local/muc')
 
 silent_mode=""
 ### Description: To skip the on-screen notifications, enable silent mode
@@ -36,27 +36,40 @@ silent_mode=""
 ### Jamf Pro parameter name: Silent Mode (to enable, set to 'on')
 
 
+# Parse CLI flags
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --targetOS) targetOS="$2"; shift ;;
+        --log-dir) log_dir="$2"; shift ;;
+        --silent-mode) silent_mode="$2"; shift ;;
+        *) echo "Unknown option: $1"; exit 1 ;;
+    esac
+    shift
+done
+
 ############################################
-#             Script Parameters            #
+#        Jamf Pro Script Parameters        #
 ############################################
 
 # CHECK TO SEE IF A VALUE WAS PASSED IN PARAMETER 4 AND, IF SO, ASSIGN TO "targetOS"
-if [[ "$4" != "" ]] && [[ "$targetOS" == "" ]]
-then
-    targetOS=$4
+if [[ -n "$4" ]] && [[ -z "$targetOS" ]]; then
+    targetOS="$4"
 fi
 
 # CHECK TO SEE IF A VALUE WAS PASSED IN PARAMETER 5 AND, IF SO, ASSIGN TO "log_dir"
-if [[ "$5" != "" ]] && [[ "$log_dir" == "" ]]
-then
-    log_dir=$5
+if [[ -n "$5" ]] && [[ -z "$log_dir" ]]; then
+    log_dir="$5"
 fi
 
 # CHECK TO SEE IF A VALUE WAS PASSED IN PARAMETER 6 AND, IF SO, SET TO "silent_mode"
-if [[ "$6" != "" ]] && [[ "$silent_mode" == "" ]]
-then
-    silent_mode=$6
+if [[ -n "$6" ]] && [[ -z "$silent_mode" ]]; then
+    silent_mode="$6"
 fi
+
+#### Debug
+#echo "targetOS: $targetOS"
+#echo "log_dir: $log_dir"
+#echo "silent_mode: $silent_mode"
 
 
 ####################################
@@ -82,9 +95,9 @@ log_file="$log_dir/macupgradechaperone_${timestamp}.log"
 error_log="$log_dir/macupgradechaperone_${timestamp}.error.log"
 
 
-
+# One day: add some wild 90s ASCII art here, like you'd see on a .NFO
 echo "==========================================================" | tee -a "$log_file"
-echo "========= 🖥️ 🤵 Mac Upgrade Chaperone v0.6🤵 🖥️ =========" | tee -a "$log_file"
+echo "========= 🖥️ 🤵 Mac Upgrade Chaperone v0.6🤵 🖥️ ===========" | tee -a "$log_file"
 echo "==========================================================" | tee -a "$log_file"
 
 if [[ -z $targetOS ]]; then
@@ -618,6 +631,11 @@ echo "-------------------------" | tee -a "$log_file"
 ####################################
 
 #### Check the error log and based on what we found, recommend an upgrade method with an AppleScript dialog
+
+#########################################################################################################
+#      ERROR GROUPS
+#########################################################################################################
+
 # There are 5 groups of errors:
 
 # Group A = Not compatible. End of the road. 
@@ -637,44 +655,107 @@ GROUP_D_ERRORS=$(grep -E "not enough free space on disk|Software updates are res
 # Group E = Notable, but won't prevent upgrading
 GROUP_E_ERRORS=$(grep -E "Intel" "$error_log")
 
+#########################################################################################################
 
-# Set the message and buttons based on error group and display notification using osascript
-if [ -n "$GROUP_A_ERRORS" ]; then
-    MESSAGE="Bad news…\n\nThis Mac is not compatible with the target version of macOS ($targetOS).\n\n$GROUP_A_ERRORS"
-    if [[ "$silent_mode" != "on" ]]; then
-        osascript -e "display dialog \"$MESSAGE\" buttons {\"Compatibility Info…\", \"Quit\"} default button \"Quit\" with icon caution" \
-            -e "if button returned of result = \"Compatibility Info…\" then open location \"https://support.apple.com/en-au/105113\""
+# If silent_mode is NOT enabled... 
+if [[ "$silent_mode" != "on" ]]; then
+
+####################################
+#      Step 3 - Notification        #
+####################################
+
+# Set the message and buttons based on error group and display notification using osascript with timeout
+
+# Timeout for dialogs, in case there is no button clicked. We want the script to complete anyway
+    TIMEOUT_SECONDS=30
+
+    if [ -n "$GROUP_A_ERRORS" ]; then
+        MESSAGE="Bad news…\n\nThis Mac is not compatible with the target version of macOS ($targetOS).\n\n$GROUP_A_ERRORS"
+        DEFAULT_ACTION="Quit"
+        osascript <<EOF &
+        on run
+            try
+                display dialog "$MESSAGE" buttons {"Compatibility Info…", "Quit"} default button "$DEFAULT_ACTION" with icon caution giving up after $TIMEOUT_SECONDS
+                set userChoice to button returned of result
+                if userChoice is "Compatibility Info…" then
+                    do shell script "open https://support.apple.com/en-au/105113"
+                end if
+            on error
+                display dialog "No response was received. Defaulting to \"$DEFAULT_ACTION\"." buttons {"OK"} default button "OK"
+            end try
+        end run
+EOF
+
+    elif [ -n "$GROUP_B_ERRORS" ]; then
+        MESSAGE="Bad news...\n\n$GROUP_B_ERRORS\n\nYou will need to erase and re-install macOS, using either Internet Recovery or Apple Configurator 2. (aka time to nuke and pave)."
+        DEFAULT_ACTION="Quit"
+        osascript <<EOF &
+        on run
+            try
+                display dialog "$MESSAGE" buttons {"How to…", "Quit"} default button "$DEFAULT_ACTION" with icon caution giving up after $TIMEOUT_SECONDS
+                set userChoice to button returned of result
+                if userChoice is "How to…" then
+                    do shell script "open https://support.apple.com/en-au/guide/mac-help/mchl7676b710/15.0/mac/15.0"
+                end if
+            on error
+                display dialog "No response was received. Defaulting to \"$DEFAULT_ACTION\"." buttons {"OK"} default button "OK"
+            end try
+        end run
+EOF
+
+    elif [ -n "$GROUP_C_ERRORS" ]; then
+        MESSAGE="Not-so-great news...\n\n$GROUP_C_ERRORS\n\nThis Mac can be upgraded to $targetOS, but you won't be able to use MDM commands to achieve this. Recommendation: upgrade macOS via System Preferences."
+        DEFAULT_ACTION="Quit"
+        osascript <<EOF &
+        on run
+            try
+                display dialog "$MESSAGE" buttons {"Open System Settings…", "Quit"} default button "$DEFAULT_ACTION" with icon note giving up after $TIMEOUT_SECONDS
+                set userChoice to button returned of result
+                if userChoice is "Open System Settings…" then
+                    do shell script "open -a 'System Settings'"
+                end if
+            on error
+                display dialog "Input timeout. No one clicked on a button... Defaulting to \"$DEFAULT_ACTION\"." buttons {"OK"} default button "OK"
+            end try
+        end run
+EOF
+
+    elif [ -n "$GROUP_D_ERRORS" ]; then
+        MESSAGE="Rats.\n\n$GROUP_D_ERRORS\n\nHave a look at the above issues. Rectify these and try again. Or, just nuke and pave."
+        DEFAULT_ACTION="Quit"
+        osascript <<EOF &
+        on run
+            try
+                display dialog "$MESSAGE" buttons {"Show error log", "Quit"} default button "$DEFAULT_ACTION" with icon stop giving up after $TIMEOUT_SECONDS
+                set userChoice to button returned of result
+                if userChoice is "Show error log" then
+                    do shell script "open /path/to/error/log"
+                end if
+            on error
+                display dialog "Input timeout. No one clicked on a button... Defaulting to \"$DEFAULT_ACTION\"." buttons {"OK"} default button "OK"
+            end try
+        end run
+EOF
+
+    else
+        MESSAGE="Great news! All checks passed successfully. 🎉 You can upgrade this Mac via MDM. Log into your MDM server ($mdmUrl) and go from there."
+        DEFAULT_ACTION="OK"
+        osascript <<EOF &
+        on run
+            try
+                display dialog "$MESSAGE" buttons {"OK"} default button "$DEFAULT_ACTION" with icon note giving up after $TIMEOUT_SECONDS
+            on error
+                display dialog "Input timeout. No one clicked on a button... Defaulting to \"$DEFAULT_ACTION\"." buttons {"OK"} default button "OK"
+            end try
+        end run
+EOF
     fi
-
-elif [ -n "$GROUP_B_ERRORS" ]; then
-    MESSAGE="Bad news...\n\n$GROUP_B_ERRORS\n\nYou will need to erase and re-install macOS, using either Internet Recovery or Apple Configurator 2. (aka time to nuke and pave)."
-    if [[ "$silent_mode" != "on" ]]; then
-        osascript -e "display dialog \"$MESSAGE\" buttons {\"How to…\", \"Quit\"} default button \"Quit\" with icon caution" \
-            -e "if button returned of result = \"How to…\" then open location \"https://support.apple.com/en-au/guide/mac-help/mchl7676b710/15.0/mac/15.0\""
-    fi
-
-elif [ -n "$GROUP_C_ERRORS" ]; then
-    MESSAGE="Not-so-great news...\n\n$GROUP_C_ERRORS\n\nThis Mac can be upgraded to $targetOS, but you won't be able to use MDM commands to achieve this. Recommendation: upgrade macOS via System Preferences."
-    if [[ "$silent_mode" != "on" ]]; then
-        osascript -e "display dialog \"$MESSAGE\" buttons {\"Open System Settings…\", \"Quit\"} default button \"Quit\" with icon note" \
-            -e "if button returned of result = \"Open System Settings…\" then do shell script \"open -a 'System Settings'\""
-    fi
-
-elif [ -n "$GROUP_D_ERRORS" ]; then
-    MESSAGE="Rats.\n\n$GROUP_D_ERRORS\n\nHave a look at the above issues. Rectify these and try again. Or, just nuke and pave."
-    if [[ "$silent_mode" != "on" ]]; then
-        osascript -e "display dialog \"$MESSAGE\" buttons {\"Show error log\", \"Quit\"} default button \"Quit\" with icon stop" \
-            -e "if button returned of result = \"Show error log\" then do shell script \"open /path/to/error/log\""
-    fi
-
 else
-    MESSAGE="Great news! All checks passed successfully. 🎉 You can upgrade this Mac via MDM. Log into your MDM server ($mdmUrl) and go from there."
-    if [[ "$silent_mode" != "on" ]]; then
-        osascript -e "display dialog \"$MESSAGE\" buttons {\"OK\"} default button \"OK\" with icon note"
-    fi
+    echo "Silent mode is enabled. No dialogs will be displayed."
 fi
 
-echo "======= MacUpgradeChaperone Conclusion ======" | tee -a "$log_file" 
+echo "========= 🖥️ 🤵 Mac Upgrade Chaperone suggestion... 🤵 🖥️ =========" | tee -a "$log_file"
+
 echo "$MESSAGE" | tee -a "$log_file"
 
 
@@ -686,5 +767,4 @@ echo "-------------------------" | tee -a "$log_file"
 
 echo "Best of luck on your upgrade journey! Bon voyage! 👋" | tee -a "$log_file"
 echo "Completed: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file"
-echo "============= END =========================" | tee -a "$log_file"
 exit 0
