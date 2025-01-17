@@ -39,13 +39,20 @@ silent_mode=""
 # Parse CLI flags
 while [[ "$#" -gt 0 ]]; do
     case $1 in
-        --targetOS) targetOS="$2"; shift ;;
-        --log-dir) log_dir="$2"; shift ;;
-        --silent-mode) silent_mode="$2"; shift ;;
+        --targetOS) targetOS="$2"; shift 2 ;;
+        --log_dir) log_dir="$2"; shift 2 ;;
+        --silent_mode) silent_mode="$2"; shift 2 ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
-    shift
 done
+
+# Assign values to positional variables
+set -- "$targetOS" "$log_dir" "$silent_mode" "$@"
+
+# Ensure $4, $5, and $6 are assigned
+targetOS=$4
+log_dir=$5
+silent_mode=$6
 
 ############################################
 #        Jamf Pro Script Parameters        #
