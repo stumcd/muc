@@ -269,12 +269,16 @@ echo "------------------------------" | tee -a "$log_file"
 echo "⚙️  Checking MDM Server..." | tee -a "$log_file" 
 echo "------------------------------" | tee -a "$log_file"
 
-mdmServerStatus=$(curl -s -o /dev/null -w "%{http_code}" "$mdmUrl")
+mdmServerStatus=$(curl -s -o /dev/null -w "%{http_code}" "$mdmUrl/healthCheck.html")
 
 if [ "$mdmServerStatus" -eq 200 ] || [ "$mdmServerStatus" -eq 301 ]; then
-    echo "✅ MDM Server is reachable.mdmUrl returnd HTTP status code: $mdmServerStatus" | tee -a "$log_file"
+    echo "✅ MDM Server is reachable." | tee -a "$log_file"
+    echo "-- URL: $mdmUrl" | tee -a "$log_file"
+    echo "-- HTTP response: $mdmServerStatus" | tee -a "$log_file"    
 else
-    echo "❌ Failed to connect to "$mdmUrl". HTTP status code: $mdmServerStatus" | tee -a "$log_file" | tee -a "$error_log"
+    echo "❌ Failed to connect to $mdmUrl." | tee -a "$log_file" | tee -a "$error_log"
+    echo "-- URL: $mdmUrl" | tee -a "$log_file"
+    echo "-- HTTP response: $mdmServerStatus" | tee -a "$log_file"    
 fi
 
 # Check if Bootstrap Token has been escrowed
