@@ -7,25 +7,20 @@
 # Created: 14-09-24
 # -----------------------------------------------------
 # Version: 0.6
-# Modified: 16-01-25
+# Modified: 17-01-25
 # -----------------------------------------------------
-
-
-## Directory to write the log file and error log to
-log_dir="/usr/local/muc"
-
-## Target macOS version
-targetOS=""
-
-####################################
-#               Config             #
-####################################
 
 ## Check if script has been run as root. If not, exit.
 if [ "$(id -u)" -ne 0 ]; then
     echo "Sorry, this script must be run as root. Sudo bang bang!" >&2
     exit 1
 fi
+
+## Directory to write the log file and error log to
+log_dir="/usr/local/muc"
+
+## Target macOS version
+targetOS=""
 
 ## Use the target version and log directory specified by script parameters, if present
 
@@ -41,13 +36,11 @@ then
     log_dir=$5
 fi
 
-if [[ -z $targetOS ]]; then
-    echo "macOS target version not defined, so defaulting to latest major release." | tee -a "$log_file"
-    targetOS="macOS Sequoia"
-    echo "🎯 Target version (default): $targetOS" | tee -a "$log_file"
-else
-    echo "🎯 Target version: $targetOS" | tee -a "$log_file"
-fi
+
+####################################
+#               Config             #
+####################################
+
 
 ## Create the directory if it doesn't exist
 # Ensure the current user has ownership
@@ -66,6 +59,19 @@ log_file="$log_dir/macupgradechaperone_${timestamp}.log"
 ## Write to a new error log file for each run, appended with timestamp
 error_log="$log_dir/macupgradechaperone_${timestamp}.error.log"
 
+
+echo "========= 🖥️ 🤵 Mac Upgrade Chaperone v0.6🤵 🖥️ =========" | tee -a "$log_file"
+
+
+
+if [[ -z $targetOS ]]; then
+    echo "macOS target version not defined, so defaulting to latest major release." | tee -a "$log_file"
+    targetOS="macOS Sequoia"
+    echo "🎯 Target version (default): $targetOS" | tee -a "$log_file"
+else
+    echo "🎯 Target version: $targetOS" | tee -a "$log_file"
+fi
+
 echo "-------------------------" | tee -a "$log_file"
 
 
@@ -73,13 +79,12 @@ echo "-------------------------" | tee -a "$log_file"
 ##         Step 1 - Checks        ##
 ####################################
 
+
 echo "Log: $log_file" | tee -a "$log_file"
 echo "Error log: $error_log" | tee -a "$log_file"
 
 #echo "Debug: Parameter 4: '$4'" | tee -a "$log_file"
 #echo "Debug: Parameter 5: '$5'" | tee -a "$log_file"
-
-echo "========= 🖥️ 🤵 Mac Upgrade Chaperone v0.6🤵 🖥️ =========" | tee -a "$log_file"
 
 echo "-------------------------" | tee -a "$log_file"
 
@@ -150,33 +155,11 @@ echo "----- Guiding your journey to... ✨ $targetOS ✨ -----" | tee -a "$log_f
 echo "-------------------------" | tee -a "$log_file"
 
 
-echo "Start time: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file" 
+echo "Start: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file" 
 echo "=========================================" | tee -a "$log_file"
-
-# Collect hardware info
-architecture=$(uname -m)
-hardware_serial=$(system_profiler SPHardwareDataType | awk -F ": " '/Serial Number/ {print $2}')
-hardware_name=$(system_profiler SPHardwareDataType | awk -F ": " '/Model Name/ {print $2}')
-hardware_modelidentifier=$(system_profiler SPHardwareDataType | awk -F ": " '/Model Identifier/ {print $2}')
-processor_info=$(system_profiler SPHardwareDataType | awk -F ": " '/Processor Name|Chip/ {print $2}')
-
-# Display hardware info
-echo "------------------------------" | tee -a "$log_file"
-echo "🖥  Mac hardware:" | tee -a "$log_file"
-if [ "$architecture" = "arm64" ]; then
-  echo "Architecture: Apple silicon" | tee -a "$log_file"
-else
-  echo "⚠️ Architecture: Intel" | tee -a "$log_file" | tee -a "$error_log"
-fi
-echo "Serial: ${hardware_serial:-Unknown}" | tee -a "$log_file"
-echo "Model: ${hardware_name:-Unknown}" | tee -a "$log_file"
-echo "Model Identifier: ${hardware_modelidentifier:-Unknown}" | tee -a "$log_file"
-echo "Processor Info: ${processor_info:-Unknown}" | tee -a "$log_file"
-
 
 
 # Check if there's an MDM profile installed 
-echo "------------------------------" | tee -a "$log_file"
 echo "⚙️  Checking MDM profile..." | tee -a "$log_file"
 echo "------------------------------" | tee -a "$log_file"
 
@@ -185,7 +168,7 @@ mdm_profile=$(profiles status -type enrollment)
 if [[ "$mdm_profile" == *"MDM enrollment: Yes"* ]]; then
   echo "✅ MDM Profile: Installed." | tee -a "$log_file"
   mdmUrl=$(system_profiler SPConfigurationProfileDataType | awk -F'[/:?]' '/CheckInURL/ {print $4}')
-  echo "ℹ️ MDM Server: $mdmUrl" | tee -a "$log_file"
+  echo "ℹ️  MDM Server: $mdmUrl" | tee -a "$log_file"
 fi
  
 if [[ "$mdm_profile" == *"MDM enrollment: No"* ]]; then
@@ -223,7 +206,7 @@ if [[ ${mdm_profile_removeable} = '1' ]]; then
 	
 else
   if [[ ${mdm_profile_removeable} = '0' ]]; then
-    echo "❌  MDM Profile is removable." | tee -a "$log_file" | tee -a "$error_log"
+    echo "⚠️  MDM Profile is removable." | tee -a "$log_file" | tee -a "$error_log"
   fi
 fi
 
@@ -254,11 +237,11 @@ user_approved_enrol=$(profiles status -type enrollment)
 if echo "$ade_enrolled" | grep -q "Enrolled via DEP: Yes"; then
     echo "✅ This Mac was enrolled using Automated Device Enrollment" | tee -a "$log_file"
 else
-    echo "❌ This Mac was not enrolled via Automated Device Enrollment" | tee -a "$log_file" | tee -a "$error_log"
+    echo "⚠️  This Mac was not enrolled via Automated Device Enrollment" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
 if echo "$user_approved_enrol" | grep -q "Yes (User Approved)"; then
-    echo "⚠️ This Mac is enrolled in MDM (User Approved)" | tee -a "$log_file" | tee -a "$error_log"
+    echo "⚠️  This Mac is MDM enrolled (User Approved)" | tee -a "$log_file" | tee -a "$error_log"
 else
     echo "❌ Not enrolled in MDM" | tee -a "$log_file" | tee -a "$error_log"
 fi
@@ -273,8 +256,8 @@ mdmServerStatus=$(curl -s -o /dev/null -w "%{http_code}" "$mdmUrl/healthCheck.ht
 
 if [ "$mdmServerStatus" -eq 200 ] || [ "$mdmServerStatus" -eq 301 ]; then
     echo "✅ MDM Server is reachable." | tee -a "$log_file"
-    echo "-- URL: $mdmUrl" | tee -a "$log_file"
-    echo "-- HTTP response: $mdmServerStatus" | tee -a "$log_file"    
+    echo "ℹ️  URL: $mdmUrl" | tee -a "$log_file"
+    echo "ℹ️  HTTP response: $mdmServerStatus" | tee -a "$log_file"    
 else
     echo "❌ Failed to connect to $mdmUrl." | tee -a "$log_file" | tee -a "$error_log"
     echo "-- URL: $mdmUrl" | tee -a "$log_file"
@@ -290,6 +273,7 @@ fi
 
 echo "-----" | tee -a "$log_file"
 
+## Note: In testing, currently the below checks *are not valid*. With a 90 day deferral in place, these commands do not respond as expected. 
 
 # Check for macOS upgrade restrictions
 echo "Checking for any managed configuration preventing macOS upgrades..." | tee -a "$log_file"
@@ -344,7 +328,7 @@ fi
 
 ######## Checking disk volumes
 echo "------------------------------" | tee -a "$log_file"
-echo "🧐 Checking the volumes on disk..." | tee -a "$log_file"
+echo "🧐 Checking APFS volumes..." | tee -a "$log_file"
 echo "------------------------------" | tee -a "$log_file"
 
 # List of volumes to check
@@ -371,19 +355,15 @@ else
 fi
 
 ######## Check available space
-echo "------------------------------" | tee -a "$log_file"
-echo "📏 Checking available space..." | tee -a "$log_file"
-echo "------------------------------" | tee -a "$log_file"
-
 available_space=$(df / | tail -1 | awk '{print $4}')
 
 # Convert available space to GB
 available_space_gb=$((available_space / 1048576))
 
 if [ "$available_space_gb" -ge 20 ]; then
-  echo "✅ There is enough free space (20 GB required, $available_space_gb GB available)." | tee -a "$log_file"
+  echo "✅ There is enough free space on disk to install $targetOS (20 GB required, $available_space_gb GB available)." | tee -a "$log_file"
 else
-  echo "❌ There is not enough free space ($available_space_gb GB available, 20 GB required)." | tee -a "$log_file" | tee -a "$error_log"
+  echo "❌ There is not enough free space on disk ($available_space_gb GB available, 20 GB required)." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
 
@@ -455,8 +435,32 @@ sequoia_compatible_models=(
   "Mac14,16"        # Mac Studio (M3 Ultra, 2024)
 )
 
+
+
+# Collect hardware info
+architecture=$(uname -m)
+hardware_serial=$(system_profiler SPHardwareDataType | awk -F ": " '/Serial Number/ {print $2}')
+hardware_name=$(system_profiler SPHardwareDataType | awk -F ": " '/Model Name/ {print $2}')
+hardware_modelidentifier=$(system_profiler SPHardwareDataType | awk -F ": " '/Model Identifier/ {print $2}')
+processor_info=$(system_profiler SPHardwareDataType | awk -F ": " '/Processor Name|Chip/ {print $2}')
+
+# Display hardware info
+echo "------------------------------" | tee -a "$log_file"
+echo "🖥  Checking Mac hardware:" | tee -a "$log_file"
+if [ "$architecture" = "arm64" ]; then
+  echo "-- Architecture: Apple silicon" | tee -a "$log_file"
+else
+  echo "⚠️ Architecture: Intel" | tee -a "$log_file" | tee -a "$error_log"
+fi
+echo "-- Serial: ${hardware_serial:-Unknown}" | tee -a "$log_file"
+echo "-- Model: ${hardware_name:-Unknown}" | tee -a "$log_file"
+echo "-- Model Identifier: ${hardware_modelidentifier:-Unknown}" | tee -a "$log_file"
+echo "-- Processor Info: ${processor_info:-Unknown}" | tee -a "$log_file"
+
+
+
 # Check compatibility based on targetOS
-echo "-------------------------" | tee -a "$log_file"
+#echo "-------------------------" | tee -a "$log_file"
 
 if [[ "$targetOS" == "macOS Sonoma" ]]; then
     compatible_models=("${sonoma_compatible_models[@]}")
@@ -469,10 +473,11 @@ fi
 
 # Check if the hardware model is in the list of compatible models
 if [[ " ${compatible_models[@]} " =~ " $hardware_modelidentifier " ]]; then
-    echo "✅ Compatible with $targetOS" | tee -a "$log_file"
+    echo "✅ This model is compatible with $targetOS" | tee -a "$log_file"
 else
     echo "❌ ${hardware_modelidentifier:-Unknown} is not compatible with $targetOS." | tee -a "$log_file" | tee -a "$error_log"
 fi
+
 
 
 # Check currently installed macOS version
@@ -484,16 +489,16 @@ major_version=$(echo "$macos_version" | cut -d '.' -f 1)
 
 if [ "$major_version" -ge 11 ]; then
   echo "✅ $macos_version can upgrade to $targetOS" | tee -a "$log_file"
+  echo "ℹ️  Current version: $macos_version" | tee -a "$log_file" | tee -a "$error_log"
 else
-  echo "❌ macOS Big Sur and earlier cannot upgrade to $targetOS." | tee -a "$log_file" | tee -a "$error_log"
-  echo "⚠️ This Mac is currently running $macos_version" | tee -a "$log_file" | tee -a "$error_log"
+  echo "❌ macOS Big Sur (and earlier versions) cannot upgrade to $targetOS." | tee -a "$log_file" | tee -a "$error_log"
+  echo "ℹ️  Current version: $macos_version" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
 #### Check if macOS installer is already on disk 
 ## Future plans:
 ## - If macOS re-install needed, download installer from Apple using mist-cli 
 ## - If not already installed, install mist-cli from GitHub
-
 
 # macOS installer path
 installer_path="/Applications/Install $targetOS.app"
@@ -509,11 +514,11 @@ if [ -d "$installer_path" ]; then
   if [ -f "$startosinstall_path" ]; then
     echo "✅ The 'startosinstall' binary is available." | tee -a "$log_file"
   else
-    echo "❌ The 'startosinstall' binary is missing." | tee -a "$log_file" | tee -a "$error_log"
+    echo "⚠️  The 'startosinstall' binary is missing." | tee -a "$log_file" | tee -a "$error_log"
     echo "---  'startosinstall' should be found at: $startosinstall_path." | tee -a "$log_file" | tee -a "$error_log"
   fi
 else
-  echo "❌ $targetOS installer was not found in /Applications" | tee -a "$log_file" | tee -a "$error_log"
+  echo "⚠️  $targetOS installer was not found in /Applications" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
 #### Secure Token & user attributes checks
@@ -530,7 +535,7 @@ check_secure_token() {
 }
 
 echo "-------------------------" | tee -a "$log_file"
-echo "👤 Checking user accounts for role and Secure Token status (excluding system accounts)..." | tee -a "$log_file"
+echo "👤 Checking user accounts..." | tee -a "$log_file"
 echo "-------------------------" | tee -a "$log_file"
 
 # Get a list of local user accounts (excluding system accounts)
@@ -639,6 +644,6 @@ echo "$MESSAGE" | tee -a "$log_file"
 echo "-------------------------" | tee -a "$log_file"
 
 echo "Best of luck on your upgrade journey! Bon voyage! 👋" | tee -a "$log_file"
-echo "Completed time: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file"
+echo "Completed: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file"
 echo "=========================================" | tee -a "$log_file"
 exit 0
