@@ -1,7 +1,7 @@
 # MUC - Mac Upgrade Chaperone
 
-It can be difficult to determine the best way to upgrade a given Mac. e.g. what is a Secure Token & is it needed to upgrade? Can this Mac even upgrade to 'macOS Palm Springs'? Would it just be easier to erase and reinstall? 
-Your scenario may range from 'I have 15 Macs here I need to return to service ASAP on the latest version' to 'I need to get this Mac onto the latest version ASAP, but can I upgrade in place so I don't need to backup and restore user data after the install?' 
+For the uninitiated, it can be difficult to determine the best way to upgrade a given Mac. e.g. what is a Secure Token & is it needed to upgrade? Can this Mac even upgrade to 'macOS Palm Springs'? Would it just be easier to erase and reinstall? 
+The scenario may vary widely too. From 'there are 15 Macs in front of me that must be returned to service ASAP on the latest version' to 'I need to get this Mac onto the latest version ASAP, but can I upgrade in place so I don't need to backup and restore user data after the install?' 
 
 So, it’d be great to have someone who knows all the minutia and can guide you on the best path to take... a guide or sherpa. Or a chaperone!
 
@@ -9,7 +9,13 @@ Meet 'Mac Upgrade Chaperone' 🖥️🤵‍♂️
 This script will guide you to the best (available) macOS upgrade method for a given Mac. 
 Broadly, the upgrade methods range from 'best case scenario' (send an MDM command), through 'not so bad' (manual intervention needed e.g. not enough free space), to 'erase and re-install' (nuke & pave via EACS, MDM command, Recovery, depending on options), and the true dead-end scenario: this Mac *cannot* run the specified macOS version (e.g. incompatible). 
 
-
+## Features: 
+* Check which requirements are met for a potential macOS upgrade on a given Mac host
+* Determine the best method available, explain why, provide links to relevant Apple documentation 
+* MUC conclusion is displayed on-screen using AppleScript
+* (Alternative) MUC now has a 'silent mode' that doesn't show dialogs to end-user and *only* logs to file (Thanks to @daniel-maclaughlin for the idea!) 
+* Included Jamf Pro extension attribute for reporting the MUC conclusion into Jamf Pro inventory, then create Smart Groups for '✅ Upgrade Ready', '⚠️ Needs attention' and '❌ Can't upgrade'
+ 
 ## To determine the 'best' upgrade method, Mac Upgrade Chaperone will check: 
 
 ### Connectivity
@@ -20,15 +26,15 @@ Broadly, the upgrade methods range from 'best case scenario' (send an MDM comman
 ### Management 
 * Is there an MDM profile? ✅
   * Is the MDM profile valid (ie not expired)?
-  * Is the MDM profile non-removable?
-  * Has the associated push cert expired? 
+  * Is the MDM profile non-removable? ✅
+  * Has the associated push cert expired? (not reliable currently)
 * Was the device enrolled via Automated Device Enrollment (aka DEP)? ✅
 * Was the device enrolled using User-Approved?
 * Can we connect to the MDM server? ✅
   * Has a Bootstrap Token been escrowed to the MDM server? ✅
-* Are there any MDM-managed upgrade restrictions in-place? (not accurate atm)
-* Is there a deferral in place for macOS updates? (not accurate atm)
-  * If so, how many days? (not accurate atm)
+* Are there any MDM-managed upgrade restrictions in-place? (not reliable currently)
+* Is there a deferral in place for macOS updates? (not reliable currently)
+  * If so, how many days? (not reliable currently)
 * Is the Software Update Catalog URL set to Apple's default? ✅
  
 ### Disk volumes
