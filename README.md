@@ -1,10 +1,11 @@
 # MUC - Mac Upgrade Chaperone
 
-It can be a challenge to determine the best way to upgrade a given Mac. 
+It can difficult to determine the best way to upgrade a given Mac. e.g. do I need a Bootstrap token to upgrade? 
 So, it’d be great if we had a guide or sherpa for the journey. Or a chaperone!
 
 Meet 'MacUpgradeChaperone' 🖥️🤵‍♂️ 
-This script aims to guide you to the 'best' macOS upgrade method, ranging from 'good' (send an MDM command) to 'bad' (nuke & pave via EACS, MDM command, Recovery, depending on options)
+This script aims to guide you to the 'best' macOS upgrade method. 
+Broadly, these range from 'best case scenario' (send an MDM command) past 'some intervention needed', to 'dead-end' (nuke & pave via EACS, MDM command, Recovery, depending on options)
 
 Note:
 1. Will this script download and install macOS? **No.**
@@ -12,24 +13,11 @@ Note:
 3. Is this still a work-in-progress? *Yes!*
 
 
-## How to use
-### Jamf Pro
-1. Upload script
-2. Create policy
-3. Scope
-4. Upload extension attribute (optional) 
-5. Test
-
-### Manually
-1. Download script
-2. Execute `sudo sh /path/to/macupgradechaperone-0.6.sh`
-
-[Direct link to script](https://github.com/stumcd/muc/blob/92c9c35fbac19e1376353805e50b8404f70e0932/macupgradechaperone-0.6.sh)
 
 
 
 
-## Checks include: 
+## Check for the following things: 
 
 ### Connectivity
 * Is the Mac connected to a wifi network? ✅
@@ -146,3 +134,18 @@ You will need to erase and re-install macOS, using either Internet Recovery or A
 Best of luck on your upgrade journey! Bon voyage! 👋
 Completed time: 2025-01-14 09:58:28
 ```
+
+
+## How to use
+### Jamf Pro
+1. Upload script
+2. Create policy
+3. Scope
+4. Upload extension attribute (optional) 
+5. Test
+
+### Manually
+1. Download script
+2. Execute `sudo sh /path/to/macupgradechaperone-0.6.sh`
+
+[Direct link to script](https://github.com/stumcd/muc/blob/92c9c35fbac19e1376353805e50b8404f70e0932/macupgradechaperone-0.6.sh)
