@@ -14,7 +14,7 @@ Broadly, the upgrade methods range from 'best case scenario' (send an MDM comman
 	* Alternative: MUC now has a 'silent mode' that doesn't display any notifications on-screen and *only* logs the results (Thanks to @daniel-maclaughlin for the idea!) 
 * Jamf Pro extension attribute for reporting the MUC conclusion into Jamf Pro inventory, then create Smart Groups e.g. '✅ Upgrade Ready', '⚠️ Needs Attention' and '❌ Can't Upgrade'
 
-You can view a [example of both logs here](https://github.com/stumcd/muc/blob/c445c4cbc7ecf41b4d41f5c3b449d84ef948b5aa/example_output.log)
+You can view [example output of both logs here](https://github.com/stumcd/muc/blob/0466ddd52df513c698b14c5d8f7baf7c797e4d4e/example_output.md)
 
 ### Mac Upgrade Chaperone checks and reports on: 
 #### Connectivity
@@ -31,11 +31,10 @@ You can view a [example of both logs here](https://github.com/stumcd/muc/blob/c4
 * ✅ Was the device enrolled using User-Approved?  
 * ✅ Can we connect to the MDM server?  
 		* ✅ Has a Bootstrap Token been escrowed to the MDM server?  
-MDM Restrictions (a work in progress)
+MDM Restrictions (still a work in progress)
 * ~~Are there any MDM-managed upgrade restrictions in-place?~~ 
-* ~~Is there a deferral in place for macOS updates?~~
-  * ~~If so, how many days? (not reliable currently)~~
-✅ Is the Software Update Catalog URL set to Apple's default?  
+* ~~Is there a deferral in place for macOS updates? If so, how many days?~~  
+* ✅ Is the Software Update Catalog URL set to Apple's default?  
  
 #### Disk volumes
 * ✅ Are the expected volume names found? (Macintosh HD, Macintosh HD - Data, Preboot, Recovery, VM) 
