@@ -1,7 +1,6 @@
 # MUC - Mac Upgrade Chaperone
 
-For the uninitiated, it can be difficult to determine the best way to upgrade a given Mac. e.g. what is a Secure Token & is it needed to upgrade? Can this Mac even upgrade to 'macOS Palm Springs'? Would it just be easier to erase and reinstall? 
-The scenario may vary widely too. From 'there are 15 Macs in front of me that must be returned to service ASAP on the latest version' to 'I need to get this Mac onto the latest version ASAP, but can I upgrade in place so I don't need to backup and restore user data after the install?' 
+At times, it can be difficult to determine what your options are for upgrading a given Mac.
 
 So, it’d be great to have someone who knows all the minutia and can guide you on the best path to take... a guide or sherpa. Or a chaperone!
 
@@ -12,30 +11,30 @@ Broadly, the upgrade methods range from 'best case scenario' (send an MDM comman
 ## Features: 
 * Check which requirements are met for a potential macOS upgrade on a given Mac host
 * Determine the best method available, explain why, provide links to relevant Apple documentation 
-* MUC conclusion is displayed on-screen using AppleScript
-* (Alternative) MUC now has a 'silent mode' that doesn't show dialogs to end-user and *only* logs to file (Thanks to @daniel-maclaughlin for the idea!) 
-* Included Jamf Pro extension attribute for reporting the MUC conclusion into Jamf Pro inventory, then create Smart Groups for '✅ Upgrade Ready', '⚠️ Needs attention' and '❌ Can't upgrade'
+* MUC conclusion is displayed on-screen using AppleScript, plus two log files are written to disk (general log + error log)
+	* Alternative: MUC now has a 'silent mode' that doesn't display any notifications on-screen and *only* logs the results (Thanks to @daniel-maclaughlin for the idea!) 
+* Jamf Pro extension attribute for reporting the MUC conclusion into Jamf Pro inventory, then create Smart Groups e.g. '✅ Upgrade Ready', '⚠️ Needs Attention' and '❌ Can't Upgrade'
  
-## To determine the 'best' upgrade method, Mac Upgrade Chaperone will check: 
+## To determine the best available upgrade method, Mac Upgrade Chaperone will check: 
 
 ### Connectivity
-* Is the Mac connected to a wifi network? ✅
-* Is the Mac connected to an wired network? ✅
-* Can we netcat apple.com:443? ✅
+✅ Is the Mac connected to a Wi-Fi network? 
+✅ Is the Mac connected to an wired network?
+✅ Is apple.com:443 reachable and open?
 
 ### Management 
-* Is there an MDM profile? ✅
-  * Is the MDM profile valid (ie not expired)?
-  * Is the MDM profile non-removable? ✅
+✅ Is there an MDM profile?
+✅ Is the MDM profile valid (ie not expired)?
+✅ Is the MDM profile non-removable? 
   * Has the associated push cert expired? (not reliable currently)
-* Was the device enrolled via Automated Device Enrollment (aka DEP)? ✅
-* Was the device enrolled using User-Approved?
-* Can we connect to the MDM server? ✅
-  * Has a Bootstrap Token been escrowed to the MDM server? ✅
-* Are there any MDM-managed upgrade restrictions in-place? (not reliable currently)
-* Is there a deferral in place for macOS updates? (not reliable currently)
-  * If so, how many days? (not reliable currently)
-* Is the Software Update Catalog URL set to Apple's default? ✅
+✅ Was the device enrolled via Automated Device Enrollment (aka DEP)? 
+✅ Was the device enrolled using User-Approved?
+✅ Can we connect to the MDM server?
+  ✅ Has a Bootstrap Token been escrowed to the MDM server? ✅
+* ~~Are there any MDM-managed upgrade restrictions in-place?~~ (working on it)
+* ~~Is there a deferral in place for macOS updates?~~ (working on it)
+  * ~~If so, how many days? (not reliable currently)~~ (working on it)
+✅ Is the Software Update Catalog URL set to Apple's default? 
  
 ### Disk volumes
 * Are the expected volume names found? (Macintosh HD, Macintosh HD - Data, Preboot, Recovery, VM) ✅
@@ -48,92 +47,6 @@ Broadly, the upgrade methods range from 'best case scenario' (send an MDM comman
 ### macOS Installation
 * Is there an Installer on disk already? "/Applications/Install $targetOS.app" ✅
 * Is the startosinstall binary available the installer too? ✅
- 
-## Example output: 
-
-```
-==========================================================
-========= 🖥️ 🤵 Mac Upgrade Chaperone v0.6🤵 🖥️ ========
-==========================================================
-🎯 Target version: macOS Sequoia
--------------------------
-Log: /usr/local/muc/macupgradechaperone_20250117_170138.log
-Error log: /usr/local/muc/macupgradechaperone_20250117_170138.error.log
--------------------------
-🌐 Checking network connection...
-✅ Network connection detected. �
-✅ Successfully connected to apple.com on port 443. Port check passed.
--------------------------
------ Guiding your journey to... ✨ macOS Sequoia ✨ -----
--------------------------
-Start: 2025-01-17 17:01:38
-=========================================
-⚙️  Checking MDM profile...
-------------------------------
-✅ MDM Profile: Installed.
-ℹ️  MDM Server: blah.jamfcloud.com
-✅ Push certificate is valid. Expiry date: Aug 23 05:18:30 2040 GMT
-⚠️  This Mac was not enrolled via Automated Device Enrollment
-⚠️  This Mac is MDM enrolled (User Approved)
-------------------------------
-⚙️  Checking MDM Server...
-------------------------------
-✅ MDM Server is reachable.
-ℹ️  URL: blah.jamfcloud.com
-ℹ️  HTTP response: 301
-❌ Bootstrap Token has NOT been escrowed
------
-Checking for any managed configuration preventing macOS upgrades...
-✅ No macOS restrictions found in com.apple.applicationaccess.
-✅ No deferral policy for macOS updates detected.
-✅ The system is using Apple's default software update catalog.
-------------------------------
-🧐 Checking APFS volumes...
-------------------------------
-❌ 'Macintosh HD' Volume is missing.
-❌ 'Macintosh HD - Data' Volume is missing.
-✅ 'Preboot' Volume is present.
-✅ 'Recovery' Volume is present.
-✅ 'VM' Volume is present.
-❌ Some required volumes are missing.
-✅ There is enough free space on disk to install macOS Sequoia (20 GB required, 641 GB available).
-------------------------------
-🖥 Checking Mac hardware:
-⚠️ Architecture: Intel
--- Serial: C04JK5111YZL
--- Model: Mac mini
--- Model Identifier: Macmini6,1
--- Processor Info: Dual-Core Intel Core i5
-❌ Macmini6,1 is not compatible with macOS Sequoia.
--------------------------
-🖥  Checking existing macOS installation
-❌ macOS Big Sur (and earlier versions) cannot upgrade to macOS Sequoia.
-ℹ️  Current version: 10.15.7
-⚠️  macOS Sequoia installer was not found in /Applications
--------------------------
-🙋 Checking which users have admin role + are Secure Token enabled...
--------------------------
-User: localadmin
-      Admin
-      Secure Token enabled
-      Home Directory: /Users/localadmin
-      UID: 502
-User: oscar
-      Admin
-      Secure Token enabled
-      Home Directory: /Users/oscar
-      UID: 503
--------------------------
-Evaluation complete.
--------------------------
-🧮 Calculating the best upgrade path...
-🌲 Reticulating splines...
--------------------------
-========= 🖥️ 🤵 Mac Upgrade Chaperone 🖥️ =========
-==================== Conclusion =====================
-Bad news…\n\nThis Mac is not compatible with the target version of macOS (macOS Sequoia).\n\n❌ macOS Big Sur (and earlier versions) cannot upgrade to macOS Sequoia.
--------------------------
-```
 
 ## FAQ:
 1. Will this script download and install macOS? **No.**
