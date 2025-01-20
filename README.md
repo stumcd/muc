@@ -1,4 +1,4 @@
-# MUC - Mac Upgrade Chaperone
+## Mac Upgrade Chaperone
 
 At times, it can be difficult to determine what your options are for upgrading a given Mac.
 So, it’d be great to have someone who knows all the minutia and can guide you on the best path to take... a guide or sherpa. Or a chaperone!
@@ -33,7 +33,7 @@ You can view [example output of both logs here](https://github.com/stumcd/muc/bl
 		* ✅ Has a Bootstrap Token been escrowed to the MDM server?  
 MDM Restrictions (still a work in progress)
 * ~~Are there any MDM-managed upgrade restrictions in-place?~~ 
-* ~~Is there a deferral in place for macOS updates? If so, how many days?~~  
+* ~~Is there a deferral in place for macOS upgrades? If so, how many days?~~  
 * ✅ Is the Software Update Catalog URL set to Apple's default?  
  
 #### Disk volumes
