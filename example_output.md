@@ -1,6 +1,25 @@
 ## Example output
 
-#### Log file
+Default location: /usr/local/muc/
+
+#### Error log
+`/usr/local/muc/macupgradechaperone_20250117_170138.error.log`
+```
+⚠️  This Mac was not enrolled via Automated Device Enrollment
+⚠️  This Mac is MDM enrolled (User Approved)
+❌ Bootstrap Token has NOT been escrowed
+❌ 'Macintosh HD' Volume is missing.
+❌ 'Macintosh HD - Data' Volume is missing.
+❌ Some required volumes are missing.
+⚠️ Architecture: Intel
+❌ Macmini6,1 is not compatible with macOS Sequoia.
+❌ macOS Big Sur (and earlier versions) cannot upgrade to macOS Sequoia.
+ℹ️  Current version: 10.15.7
+⚠️  macOS Sequoia installer was not found in /Applications
+```
+
+#### Log
+`/usr/local/muc/macupgradechaperone_20250117_170138.log`
 ```
 ==========================================================
 ========= 🖥️ 🤵 Mac Upgrade Chaperone v0.6🤵 🖥️ ========
@@ -84,3 +103,4 @@ Evaluation complete.
 Bad news…\n\nThis Mac is not compatible with the target version of macOS (macOS Sequoia).\n\n❌ macOS Big Sur (and earlier versions) cannot upgrade to macOS Sequoia.
 -------------------------
 ```
+
