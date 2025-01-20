@@ -1,6 +1,6 @@
 ## Example output
 
-Default location: /usr/local/muc/
+Default location: `/usr/local/muc/`
 
 #### Error log
 `/usr/local/muc/macupgradechaperone_20250117_170138.error.log`
