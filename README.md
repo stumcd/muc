@@ -11,8 +11,8 @@ Broadly, the upgrade methods range from 'best case scenario' (send an MDM comman
 * Target a macOS version to check and report on which requirements are not met  
 * Determine the best method available, explain why, provide links to relevant Apple documentation
 * MUC conclusion is displayed on-screen using AppleScript, plus two log files are written to disk (general log + error log)
-	* Alternative: MUC now has a 'silent mode' that doesn't display any notifications on-screen and *only* logs the results (Thanks to @daniel-maclaughlin for the idea!) 
-* Jamf Pro extension attribute for reporting the MUC conclusion into Jamf Pro inventory, then create Smart Groups e.g. '✅ Upgrade Ready', '⚠️ Needs Attention' and '❌ Can't Upgrade'
+	* Alternative: MUC now has a 'silent mode' that doesn't display any notifications on-screen and *only* logs the results (Thanks to [Daniel MacLaughlin](https://github.com/daniel-maclaughlin) for the idea!) 
+* Jamf Pro extension attribute for reporting the MUC conclusion into Jamf Pro inventory, then create Smart Groups e.g. '✅ Upgrade Ready', '⚠️ Needs Attention' and '❌ Can't Upgrade' (Thanks to [Ant Darlow](https://github.com/cantscript) for the idea of scoping upgrade policies to these groups!)
 
 You can view [example output of both logs here](https://github.com/stumcd/muc/blob/0466ddd52df513c698b14c5d8f7baf7c797e4d4e/example_output.md)
 

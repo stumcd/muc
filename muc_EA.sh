@@ -2,12 +2,12 @@
 
 # -----------------------------------------------------
 # Name: muc_EA.sh
-# Description: Jamf Pro Extension Attribute to display results from MacUpgradeChaperone in your device inventory
+# Description: Jamf Pro Extension Attribute to report errors discovered by MacUpgradeChaperone into device inventory
 # Author: Stu McDonald
 # Created: 14-09-24
 # -----------------------------------------------------
 # Version: 0.6
-# Modified: 12-01-25
+# Modified: 21-01-25
 # -----------------------------------------------------
 
 
@@ -23,5 +23,5 @@ if [[ -f "$ERROR_LOG" ]]; then
   echo "<result>$(cat "$ERROR_LOG")</result>"
 else
   # If no file was found, return an error message
-  echo "<result>No issues detected. 🎉</result>"
+  echo "<result>File not found. Failed to find error log within log_dir: $log_dir</result>"
 fi
