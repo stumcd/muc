@@ -70,5 +70,3 @@ Will this script *determine what's possible and let you know?* **Yes.**
 ### Manually
 1. Download script
 2. Execute `sudo sh /path/to/macupgradechaperone-0.6.sh`
-
-[Direct link to script](https://github.com/stumcd/muc/blob/92c9c35fbac19e1376353805e50b8404f70e0932/macupgradechaperone-0.6.sh)
