@@ -6,37 +6,60 @@
 # Author: Stu McDonald
 # Created: 14-09-24
 # -----------------------------------------------------
-# Version: 0.6
-# Modified: 17-01-25
-# -----------------------------------------------------
+# Version: 0.61
+# Modified: 18-03-25
 
-## Check if script has been run as root. If not, exit.
-if [ "$(id -u)" -ne 0 ]; then
-    echo "Sorry, this script must be run as root. Sudo bang bang!" >&2
-    exit 1
-fi
+## Future plans:
+## - If macOS re-install needed, download installer from Apple using mist-cli 
+## - If not already installed, install mist-cli from GitHub
+## - Report on MDM profile installation date
+## - One day: add some wild 90s ASCII art here, like you'd see on a .NFO
 
-####################################
-#             Variables            #
-####################################
+## Notes: 
+## Currently the checks for software update restrictions *are not valid*. 
+## With a 90 day deferral in place, these commands do not respond as expected. 
+
+
+#  -----------------------------------------------------
+#                Explainer                     
+#  -----------------------------------------------------
+
+# There are 5 potential outcomes when trying to upgrade a Mac:
+#
+# Group A = Not compatible. End of the road. 
+# Group B = Nuke & pave required
+# Group C = Upgrade possible but can't be achived via MDM. Can be achieved manually, however
+# Group D = Compatible, but can't upgrade until minor issue addressed (eg not enough disk space)
+# Group E = Upgrade is possible, but there's something to be aware of
+
+
+############################################
+#                  Variables               #
+############################################
+
+### Description: Directory to create and write log files to 
+### Jamf Pro parameter number: $4
+### Jamf Pro parameter name: Log directory (e.g. '/usr/local/muc')
+log_dir="/usr/local/muc"
 
 targetOS=""
 ### Description: macOS version you want to upgrade to
 ### Jamf Pro parameter number: $4
 ### Jamf Pro parameter name: Target macOS Version (e.g. 'macOS Palm Springs')
 
-log_dir="/usr/local/muc"
-### Description: Directory to create and write log files to 
-### Jamf Pro parameter number: $5
-### Jamf Pro parameter name: Log directory (e.g. '/usr/local/muc')
-
 silent_mode=""
 ### Description: To skip the on-screen notifications, enable silent mode
 ### Jamf Pro parameter number: $6
 ### Jamf Pro parameter name: Silent Mode (to enable, set to 'on')
 
+offline_mode=""
+### Description: To skip the connectivity checks, enable offline mode
+### Jamf Pro parameter number: $7
+### Jamf Pro parameter name: Offline mode (to enable, set to 'on')
 
-# Parse CLI flags
+############################################
+
+# Parse CLI flags (still a WIP)
 #while [[ "$#" -gt 0 ]]; do
 #    case $1 in
 #        --targetOS) targetOS="$2"; shift 2 ;;
@@ -54,18 +77,19 @@ silent_mode=""
 #log_dir=$5
 #silent_mode=$6
 
+
 ############################################
 #        Jamf Pro Script Parameters        #
 ############################################
 
-# CHECK TO SEE IF A VALUE WAS PASSED IN PARAMETER 4 AND, IF SO, ASSIGN TO "targetOS"
-if [[ -n "$4" ]] && [[ -z "$targetOS" ]]; then
-    targetOS="$4"
+# CHECK TO SEE IF A VALUE WAS PASSED IN PARAMETER 5 AND, IF SO, ASSIGN TO "log_dir"
+if [[ -n "$4" ]] && [[ -z "$log_dir" ]]; then
+    log_dir="$4"
 fi
 
-# CHECK TO SEE IF A VALUE WAS PASSED IN PARAMETER 5 AND, IF SO, ASSIGN TO "log_dir"
-if [[ -n "$5" ]] && [[ -z "$log_dir" ]]; then
-    log_dir="$5"
+# CHECK TO SEE IF A VALUE WAS PASSED IN PARAMETER 6 AND, IF SO, SET TO "targetOS"
+if [[ -n "$4" ]] && [[ -z "$targetOS" ]]; then
+    targetOS="$5"
 fi
 
 # CHECK TO SEE IF A VALUE WAS PASSED IN PARAMETER 6 AND, IF SO, SET TO "silent_mode"
@@ -73,15 +97,23 @@ if [[ -n "$6" ]] && [[ -z "$silent_mode" ]]; then
     silent_mode="$6"
 fi
 
+###################################################################
 
 
-####################################
-#               Config             #
-####################################
+############################################
+#                 Setup                    #
+############################################
 
+#### Make sure script has been run as root
+if [ "$(id -u)" -ne 0 ]; then
+    echo "Sorry, this script must be run as root. Exiting..." >&2
+    exit 1
+fi
 
-## Create the directory if it doesn't exist
-# Ensure the current user has ownership
+#### Get the current timestamp (format: YYYYMMDD_HHMMSS)
+timestamp=$(date +"%Y%m%d_%H%M%S")
+
+# Create the directory if it doesn't exist & ensure the current user has ownership
 if [ ! -d "$log_dir" ]; then
   echo "The log directory '$log_dir' does not exist. Creating it now..."
   sudo mkdir -p "$log_dir"
@@ -93,159 +125,124 @@ if [[ ! -w "$log_dir" ]]; then
     exit 1
 fi
 
-# Get the current timestamp (format: YYYYMMDD_HHMMSS)
-timestamp=$(date +"%Y%m%d_%H%M%S")
-
-## Write to a new log file for each run, appended with timestamp
+#### Write to a new log file for each run, appended with timestamp
 log_file="$log_dir/macupgradechaperone_${timestamp}.log"
 
-## Write to a new error log file for each run, appended with timestamp
+#### Write to a new error log file for each run, appended with timestamp
 error_log="$log_dir/macupgradechaperone_${timestamp}.error.log"
 
-
-# One day: add some wild 90s ASCII art here, like you'd see on a .NFO
 echo "==========================================================" | tee -a "$log_file"
-echo "========= 🖥️ 🤵 Mac Upgrade Chaperone v0.6🤵 🖥️ ===========" | tee -a "$log_file"
-echo "==========================================================" | tee -a "$log_file"
+echo "======== 🖥️ 🤵 Mac Upgrade Chaperone v0.61 🤵🖥️  ===========" | tee -a "$log_file"
 
-#### Debug
-#echo "targetOS: $targetOS"
-#echo "log_dir: $log_dir"
-#echo "silent_mode: $silent_mode"
+#echo "Start: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file"
 
 
+#### Target OS: if not set, default to latest major version
 if [[ -z $targetOS ]]; then
-    echo "macOS target version not defined, so defaulting to latest major release." | tee -a "$log_file"
     targetOS="macOS Sequoia"
-    echo "🎯 Target version (default): $targetOS" | tee -a "$log_file"
-else
-    echo "🎯 Target version: $targetOS" | tee -a "$log_file"
+#    echo "--- 🎯 Target OS not set, using default: $targetOS ---" | tee -a "$log_file"
 fi
 
-echo "-------------------------" | tee -a "$log_file"
+echo "--------------- Guiding your journey to... ----------------" | tee -a "$log_file"
+echo "------------------ ✨ $targetOS ✨ --------------------" | tee -a "$log_file"
 
-# Check for silent_mode
+echo "===========================================================" | tee -a "$log_file"
+echo "ℹ️️  General log: $log_file" | tee -a "$log_file"
+echo "ℹ️  Error log: $error_log" | tee -a "$log_file"
+echo "-----------------------------------------------------------" | tee -a "$log_file"
+
 if [ "$silent_mode" = "on" ]; then
-	echo " -------------------------------------------------------------------------------------------------" | tee -a "$log_file"
-    echo "| Shhhhhhhhhhhhhhhhhh... silent_mode ENABLED.                                                     |" | tee -a "$log_file"
-    echo "| Logging only. Notifications disabled.                                                           |" | tee -a "$log_file"
-    echo "| Extension Attribute (./muc_EA.sh) included to report MUC result into Jamf Pro inventory.        |" | tee -a "$log_file"
-	echo " --------------------------------------------------------------------------------------------------" | tee -a "$log_file"
+	echo "⚠️  Silent mode: enabled 🤐"
 fi
 
-####################################
-##         Step 1 - Checks        ##
-####################################
+if [ "$offline_mode" = "on" ]; then
+	echo "⚠️ Offline mode: enabled"
+fi
 
-
-echo "Log: $log_file" | tee -a "$log_file"
-echo "Error log: $error_log" | tee -a "$log_file"
-
-#echo "Debug: Parameter 4: '$4'" | tee -a "$log_file"
-#echo "Debug: Parameter 5: '$5'" | tee -a "$log_file"
-
-echo "-------------------------" | tee -a "$log_file"
-
-
-
-
-
-echo "🌐 Checking network connection..." | tee -a "$log_file"
-
+#### Pre-req: network connectivity
 ## Check if the Mac is connected to a network (Wi-Fi or Ethernet)
 
-check_network_status() {
-    # Detect the actual Wi-Fi and Ethernet service names
-    wifi_service=$(networksetup -listallnetworkservices | grep -i "Wi-Fi")
-    ethernet_service=$(networksetup -listallnetworkservices | grep -i "Ethernet")
-
-    # Check connection status
-    wifi_connection=$(ifconfig en0 2>/dev/null | grep -q "status: active" && echo "Connected" || echo "Not connected")
-    ethernet_connection=$(ifconfig en1 2>/dev/null | grep -q "status: active" && echo "Connected" || echo "Not connected")
-
-    # Log results
-#    echo "-- Wi-Fi connection status: $wifi_connection" | tee -a "$log_file"
-#    echo "-- Ethernet connection status: $ethernet_connection" | tee -a "$log_file"
-
-    # Return status
-    if [[ "$wifi_connection" == "Connected" || "$ethernet_connection" == "Connected" ]]; then
-        return 0
-    else
-        return 1
-    fi
-}
-
-# Check the network check
-if ! check_network_status; then
-    echo "❌ No active network connection found." | tee -a "$log_file" | tee -a "$error_log"
+network_status() {
     while true; do
-        response=$(osascript -e 'display dialog "No network connection detected. Please connect to Wi-Fi or Ethernet and try again." buttons {"Quit", "Retry"} default button "Retry" with icon stop')
-
-        if [[ "$response" == "button returned:Quit" ]]; then
-            echo "User chose to quit." | tee -a "$log_file"
-            exit 1
-        elif [[ "$response" == "button returned:Retry" ]]; then
-            echo "User chose to retry." | tee -a "$log_file"
-            if check_network_status; then
-                echo "✅ Network connection detected. 🎉" | tee -a "$log_file"
+        # Check if any network interface is active
+        active_interface=$(ifconfig -l | tr ' ' '\n' | grep -E 'en[0-9]' | while read -r iface; do
+            if ifconfig "$iface" 2>/dev/null | grep -q "status: active"; then
+                echo "$iface"
                 break
+            fi
+        done)
+
+        # Check if a default gateway exists (indicating an internet connection)
+        gateway_check=$(route -n get default 2>/dev/null | grep -q "gateway" && echo "Connected" || echo "Not connected")
+
+        # Determine network status
+        if [[ -n "$active_interface" && "$gateway_check" == "Connected" ]]; then
+            echo "✅ Network connection detected. 🎉" | tee -a "$log_file"
+            return 0  # Network is connected
+        else
+            echo "❌ No active network connection found." | tee -a "$log_file" | tee -a "$error_log"
+            response=$(osascript -e 'display dialog "No network connection detected. Please connect to a network and try again." buttons {"Quit", "Retry"} default button "Retry" with icon stop')
+
+            if [[ "$response" == "button returned:Quit" ]]; then
+                echo "User chose to quit." | tee -a "$log_file"
+                exit 1
+            elif [[ "$response" == "button returned:Retry" ]]; then
+                echo "User chose to retry." | tee -a "$log_file"
+                continue  # Retry checking network
             fi
         fi
     done
+}
+
+if [ "$offline_mode" == "enabled" ]; then
+    echo "⚠️  Offline mode: skipping connectivity checks" | tee -a "$log_file"
 else
-    echo "✅ Network connection detected. 🎉" | tee -a "$log_file"
+    nc -z -w 5 apple.com 443 >/dev/null 2>&1
+    nc_apple=$?
+
+    if [ "$nc_apple" -ne 0 ]; then
+        echo "❌ Unable to connect to apple.com on port 443. Port check failed." | tee -a "$log_file" | tee -a "$error_log"
+        osascript -e 'display dialog "Unable to connect to apple.com on port 443, even though the Mac *is* connected to a network. There might be a misconfigured firewall rule blocking this, or maybe the Mac is not properly authenticated on the network." buttons {"Quit"} default button "Quit" with icon stop'
+        exit 1
+    else
+        echo "✅ Successfully connected to apple.com on port 443. Port check passed." | tee -a "$log_file"
+    fi
 fi
 
-# Final network check - Netcat apple.com:443
-nc -z -w 5 apple.com 443 >/dev/null 2>&1
-nc_apple=$?
-
-if [ "$nc_apple" -ne 0 ]; then
-    echo "❌ Unable to connect to apple.com on port 443. Port check failed." | tee -a "$log_file" | tee -a "$error_log"
-    osascript -e 'display dialog "Unable to connect to apple.com on port 443, even though the Mac *is* connected to a network. There might be a misconfigured firewall rule blocking this, or maybe the Mac is not properly authenticated on the network." buttons {"Quit"} default button "Quit" with icon stop'
-    exit 1
-else
-    echo "✅ Successfully connected to apple.com on port 443. Port check passed." | tee -a "$log_file"
-fi
-
-echo "-------------------------" | tee -a "$log_file"
-echo "----- Guiding your journey to... ✨ $targetOS ✨ -----" | tee -a "$log_file"
-echo "-------------------------" | tee -a "$log_file"
+############################################
+#             Step 1: Checks               #
+############################################
 
 
-echo "Start: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file" 
-echo "=========================================" | tee -a "$log_file"
-
-
-# Check if there's an MDM profile installed 
-echo "⚙️  Checking MDM profile..." | tee -a "$log_file"
-echo "------------------------------" | tee -a "$log_file"
+#### Check: MDM Profile and enrollment info
+echo "-----------------------------------------------------------" | tee -a "$log_file"
+echo "🔎  Checking MDM profile..." | tee -a "$log_file"
+echo "-----------------------------------------------------------" | tee -a "$log_file"
 
 mdm_profile=$(profiles status -type enrollment)
 
 if [[ "$mdm_profile" == *"MDM enrollment: Yes"* ]]; then
   echo "✅ MDM Profile: Installed." | tee -a "$log_file"
+  
   mdmUrl=$(system_profiler SPConfigurationProfileDataType | awk -F'[/:?]' '/CheckInURL/ {print $4}')
-  echo "ℹ️  MDM Server: $mdmUrl" | tee -a "$log_file"
+  echo "ℹ️  MDM Server URL: $mdmUrl" | tee -a "$log_file"
 fi
  
 if [[ "$mdm_profile" == *"MDM enrollment: No"* ]]; then
   echo "❌ MDM Profile not present. This Mac is NOT managed." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-# Check the MDM profile installation date
-# mdm_profile_install_date=$(profiles show -output stdout-xml | plutil -extract ProfileDetails xml1 -o - - | grep -A 1 "InstallationDate" | grep -o '[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}T[0-9]\{2\}:[0-9]\{2\}:[0-9]\{2\}Z')
 
 #if [[ -z "$mdm_profile_install_date" ]]; then
 #    echo "--- ❌ Profiles binary couldn't find an MDM Profile... That's... odd." | tee -a "$log_file" | tee -a "$error_log"
 #else
 
-    # Compare installation date with the current date
+# Compare installation date with the current date
 #    current_date=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 #    mdm_profile_ts=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$mdm_profile_install_date" +%s)
 #    current_ts=$(date -u +%s)
 
-    # Calculate timestamp for 5 years (5 * 365 * 24 * 60 * 60)
+#    Calculate timestamp for 5 years (5 * 365 * 24 * 60 * 60)
 #    five_years_ago_ts=$((current_ts - 157680000))
 
 #    if [[ "$mdm_profile_ts" -lt "$five_years_ago_ts" ]]; then
@@ -256,19 +253,24 @@ fi
 #    fi
 #fi
 
+if [[ "$offline_mode" != "disabled" ]]; then
+
 # Check if MDM profile is removable
-mdm_profile_removeable=$(profiles -e | grep "IsMDMUnremovable" | awk '{print $3}' | tr -d ';')
-
-if [[ ${mdm_profile_removeable} = '1' ]]; then
-	echo "✅ MDM Profile is NOT removable." | tee -a "$log_file"
+	mdm_profile_removeable=$(profiles -e | grep "IsMDMUnremovable" | awk '{print $3}' | tr -d ';')
 	
-else
-  if [[ ${mdm_profile_removeable} = '0' ]]; then
-    echo "⚠️  MDM Profile is removable." | tee -a "$log_file" | tee -a "$error_log"
-  fi
+	if [[ ${mdm_profile_removeable} = '1' ]]; then
+		echo "✅ MDM Profile is NOT removable" | tee -a "$log_file"
+		
+	else
+	  if [[ ${mdm_profile_removeable} = '0' ]]; then
+		echo "⚠️  MDM Profile is removable." | tee -a "$log_file" | tee -a "$error_log"
+	  fi
+	fi
+else 
+	echo "⚠️  Running in offline mode: unable to check Device Enrollment Configuration" | tee -a "$log_file"
 fi
-
-# Check if the push certificate has expired
+	
+# Check: push certificate expiry
 apns_expiry_date=$(security find-certificate -a -p /Library/Keychains/System.keychain | \
 openssl x509 -noout -enddate | \
 grep "notAfter" | head -n 1 | cut -d= -f2)
@@ -285,39 +287,31 @@ current_ts=$(date -u +"%s")
 if [[ "$apns_expiry_ts" -lt "$current_ts" ]]; then
     echo "❌ Push certificate has expired. Expiry date: $apns_expiry_date" | tee -a "$log_file" | tee -a "$error_log"
 else
-    echo "✅ Push certificate is valid. Expiry date: $apns_expiry_date" | tee -a "$log_file"
+    echo "✅ APNS certificate is valid. Expiry date: $apns_expiry_date" | tee -a "$log_file"
 fi
 
 # Check if enrolled via Automated Device Enrolment
 ade_enrolled=$(profiles status -type enrollment)
-user_approved_enrol=$(profiles status -type enrollment)
 
 if echo "$ade_enrolled" | grep -q "Enrolled via DEP: Yes"; then
-    echo "✅ This Mac was enrolled using Automated Device Enrollment" | tee -a "$log_file"
+    echo "✅ This Mac was enrolled via Automated Device Enrollment" | tee -a "$log_file"
 else
     echo "⚠️  This Mac was not enrolled via Automated Device Enrollment" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-if echo "$user_approved_enrol" | grep -q "Yes (User Approved)"; then
-    echo "⚠️  This Mac is MDM enrolled (User Approved)" | tee -a "$log_file" | tee -a "$error_log"
-else
-    echo "❌ Not enrolled in MDM" | tee -a "$log_file" | tee -a "$error_log"
-fi
-
-
-# Check if we can reach MDM server
-echo "------------------------------" | tee -a "$log_file"
-echo "⚙️  Checking MDM Server..." | tee -a "$log_file" 
-echo "------------------------------" | tee -a "$log_file"
+# Check: MDM server
+echo "-----------------------------------------------------------" | tee -a "$log_file"
+echo "🔎 Checking MDM Server..." | tee -a "$log_file" 
+echo "-----------------------------------------------------------" | tee -a "$log_file"
 
 mdmServerStatus=$(curl -s -o /dev/null -w "%{http_code}" "$mdmUrl/healthCheck.html")
 
 if [ "$mdmServerStatus" -eq 200 ] || [ "$mdmServerStatus" -eq 301 ]; then
-    echo "✅ MDM Server is reachable." | tee -a "$log_file"
+    echo "✅ MDM Server is reachable. HTTP response code: $mdmServerStatus" | tee -a "$log_file"
     echo "ℹ️  URL: $mdmUrl" | tee -a "$log_file"
-    echo "ℹ️  HTTP response: $mdmServerStatus" | tee -a "$log_file"    
+
 else
-    echo "❌ Failed to connect to $mdmUrl." | tee -a "$log_file" | tee -a "$error_log"
+    echo "❌ Failed to reach $mdmUrl." | tee -a "$log_file" | tee -a "$error_log"
     echo "-- URL: $mdmUrl" | tee -a "$log_file"
     echo "-- HTTP response: $mdmServerStatus" | tee -a "$log_file"    
 fi
@@ -331,12 +325,11 @@ fi
 
 echo "-----" | tee -a "$log_file"
 
-## Note: In testing, currently the below checks *are not valid*. With a 90 day deferral in place, these commands do not respond as expected. 
+#### Check: upgrade restrictions
 
-# Check for macOS upgrade restrictions
-echo "Checking for any managed configuration preventing macOS upgrades..." | tee -a "$log_file"
+#echo "Checking for any managed configuration preventing macOS upgrades..." | tee -a "$log_file"
 
-# Check if com.apple.applicationaccess exists
+# Check: com.apple.applicationaccess exists
 if [ -f "/Library/Managed Preferences/com.apple.applicationaccess.plist" ]; then
     restrict=$(/usr/bin/defaults read /Library/Managed\ Preferences/com.apple.applicationaccess restrict-software-update 2>/dev/null || echo "Not found")
     max_os=$(/usr/bin/defaults read /Library/Managed\ Preferences/com.apple.applicationaccess max-os-version 2>/dev/null || echo "Not found")
@@ -352,7 +345,7 @@ else
     echo "No MDM restrictions found in com.apple.applicationaccess." | tee -a "$log_file"
 fi
 
-# Check deferred updates in com.apple.SoftwareUpdate
+#### Check: deferred updates in com.apple.SoftwareUpdate
 if [ -f "/Library/Preferences/com.apple.SoftwareUpdate.plist" ]; then
     deferred_days=$(/usr/bin/defaults read /Library/Preferences/com.apple.SoftwareUpdate SoftwareUpdateMajorOSDeferredInstallDelay 2>/dev/null || echo "Not found")
 
@@ -365,32 +358,23 @@ else
     echo "No deferral policy found in com.apple.SoftwareUpdate." | tee -a "$log_file"
 fi
 
-# Check MDM software update commands
-#mdm_logs=$(log show --predicate 'eventMessage contains "MDM"' --info | grep "SoftwareUpdate" 2>/dev/null)
 
-#if [ -n "$mdm_logs" ]; then
-#    echo "--- ❌ MDM commands related to SoftwareUpdate detected:" | tee -a "$log_file" | tee -a #"$error_log"
-#    echo "------ $mdm_logs" | tee -a "$log_file" | tee -a "$error_log"
-#else
-#    echo "--- ✅ No MDM SoftwareUpdate commands detected in the logs." | tee -a "$log_file"
-#fi
-
-# Check for custom Software Update Catalog URL
+#### Check: Software Update Catalog URL
 catalog_url=$(defaults read /Library/Preferences/com.apple.SoftwareUpdate CatalogURL 2>/dev/null)
 
 if [ -z "$catalog_url" ]; then
-    echo "✅ The system is using Apple's default software update catalog." | tee -a "$log_file"
+    echo "✅ The system is using Apple's default software update catalog" | tee -a "$log_file"
 else
     echo "❌ Custom software update catalog URL detected: $catalog_url" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-######## Checking disk volumes
-echo "------------------------------" | tee -a "$log_file"
-echo "🧐 Checking APFS volumes..." | tee -a "$log_file"
-echo "------------------------------" | tee -a "$log_file"
+#### Check: Disk volume naming
+echo "-----------------------------------------------------------" | tee -a "$log_file"
+echo "🔎 Checking APFS volumes..." | tee -a "$log_file"
+echo "-----------------------------------------------------------" | tee -a "$log_file"
 
 # List of volumes to check
-volumes=("Macintosh HD" "Macintosh HD - Data" "Preboot" "Recovery" "VM")
+volumes=("Macintosh HD" "Data" "Preboot" "Recovery" "VM")
 
 # Flag to track volumes
 all_volumes_present=true
@@ -412,7 +396,7 @@ else
   echo "❌ Some required volumes are missing." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-######## Check available space
+#### Check: Available space
 available_space=$(df / | tail -1 | awk '{print $4}')
 
 # Convert available space to GB
@@ -424,11 +408,36 @@ else
   echo "❌ There is not enough free space on disk ($available_space_gb GB available, 20 GB required)." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
+#### Check: Hardware
 
+echo "-----------------------------------------------------------" | tee -a "$log_file"
+echo "🔎 Checking hardware..." | tee -a "$log_file"
+echo "-----------------------------------------------------------" | tee -a "$log_file"
 
-#### Check compatibility
-# Define macOS Sonoma compatibility models
-sonoma_compatible_models=(
+#### Check: Battery health
+battery_info=$(system_profiler SPPowerDataType)
+battery_cycle_count=$(system_profiler SPPowerDataType | awk '/Cycle Count:/ {print $3}')
+battery_condition=$(echo "$battery_info" | awk -F ': ' '/Condition/ {print $2}')
+
+if [ "$battery_cycle_count" -lt 1000 ]; then
+    echo "✅ Battery cycle count is acceptable. Battery cycles: $battery_cycle_count" | tee -a "$log_file"
+else
+    echo "❌ Battery cycle count is too high: $battery_cycle_count" | tee -a "$log_file" "$error_log"
+fi
+
+# Check: Battery condition
+if [[ -n "$battery_condition" ]]; then
+  echo "✅ Battery condition: $battery_condition" | tee -a "$log_file"
+  if [[ "$battery_condition" != "Normal" ]]; then
+    echo "⚠️ Battery condition is not optimal: $battery_condition. Consider servicing or replacing this Mac." | tee -a "$log_file" | tee -a "$error_log"
+  fi
+else
+  echo "❌ Failed to retrieve battery condition." | tee -a "$log_file" | tee -a "$error_log"
+fi
+
+# Define macOS compatibility
+
+sierra_compatible_models=(
   "MacBookAir8,1"  # MacBook Air (Retina, 13-inch, 2018)
   "MacBookAir9,1"  # MacBook Air (Retina, 13-inch, 2019)
   "MacBookAir10,1" # MacBook Air (M1, 2020)
@@ -463,7 +472,6 @@ sonoma_compatible_models=(
   "Mac14,14"       # Mac Studio (M2 Ultra, 2023)
 )
 
-# Define macOS Sequoia compatibility models
 sequoia_compatible_models=(
   "MacBookAir10,1"  # MacBook Air (M1, 2020)
   "MacBookAir14,2"  # MacBook Air (13-inch, M2, 2022)
@@ -493,18 +501,13 @@ sequoia_compatible_models=(
   "Mac14,16"        # Mac Studio (M3 Ultra, 2024)
 )
 
-
-
-# Collect hardware info
+#### Hardware info - collect
 architecture=$(uname -m)
 hardware_serial=$(system_profiler SPHardwareDataType | awk -F ": " '/Serial Number/ {print $2}')
 hardware_name=$(system_profiler SPHardwareDataType | awk -F ": " '/Model Name/ {print $2}')
 hardware_modelidentifier=$(system_profiler SPHardwareDataType | awk -F ": " '/Model Identifier/ {print $2}')
 processor_info=$(system_profiler SPHardwareDataType | awk -F ": " '/Processor Name|Chip/ {print $2}')
 
-# Display hardware info
-echo "------------------------------" | tee -a "$log_file"
-echo "🖥  Checking Mac hardware:" | tee -a "$log_file"
 if [ "$architecture" = "arm64" ]; then
   echo "-- Architecture: Apple silicon" | tee -a "$log_file"
 else
@@ -514,11 +517,6 @@ echo "-- Serial: ${hardware_serial:-Unknown}" | tee -a "$log_file"
 echo "-- Model: ${hardware_name:-Unknown}" | tee -a "$log_file"
 echo "-- Model Identifier: ${hardware_modelidentifier:-Unknown}" | tee -a "$log_file"
 echo "-- Processor Info: ${processor_info:-Unknown}" | tee -a "$log_file"
-
-
-
-# Check compatibility based on targetOS
-#echo "-------------------------" | tee -a "$log_file"
 
 if [[ "$targetOS" == "macOS Sonoma" ]]; then
     compatible_models=("${sonoma_compatible_models[@]}")
@@ -536,11 +534,11 @@ else
     echo "❌ ${hardware_modelidentifier:-Unknown} is not compatible with $targetOS." | tee -a "$log_file" | tee -a "$error_log"
 fi
 
+#### Check: Currently installed macOS version
+echo "-----------------------------------------------------------" | tee -a "$log_file"
+echo "🔎  Checking existing macOS installation" | tee -a "$log_file"
+echo "-----------------------------------------------------------" | tee -a "$log_file"
 
-
-# Check currently installed macOS version
-echo "-------------------------" | tee -a "$log_file"
-echo "🖥  Checking existing macOS installation" | tee -a "$log_file"
 
 macos_version=$(sw_vers -productVersion)
 major_version=$(echo "$macos_version" | cut -d '.' -f 1)
@@ -553,22 +551,17 @@ else
   echo "ℹ️  Current version: $macos_version" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-#### Check if macOS installer is already on disk 
-## Future plans:
-## - If macOS re-install needed, download installer from Apple using mist-cli 
-## - If not already installed, install mist-cli from GitHub
-
-# macOS installer path
+#### Check: macOS installer is already on disk 
 installer_path="/Applications/Install $targetOS.app"
 
 # startosinstall path
 startosinstall_path="$installer_path/Contents/Resources/startosinstall"
 
-# Check if the installer exists
+# Check: macOS installer
 if [ -d "$installer_path" ]; then
   echo "✅ $targetOS installer found at '$installer_path'." | tee -a "$log_file"
 
-# Also check if the startosinstall binary exists
+# Check: startosinstall binary
   if [ -f "$startosinstall_path" ]; then
     echo "✅ The 'startosinstall' binary is available." | tee -a "$log_file"
   else
@@ -579,7 +572,10 @@ else
   echo "⚠️  $targetOS installer was not found in /Applications" | tee -a "$log_file" | tee -a "$error_log"
 fi
 
-#### Secure Token & user attributes checks
+#### Check: Existing user accounts for admin role + Secure Token
+echo "-----------------------------------------------------------" | tee -a "$log_file"
+echo "🔎 Checking existing user accounts..." | tee -a "$log_file"
+echo "-----------------------------------------------------------" | tee -a "$log_file"
 
 # Function to check if a user has a Secure Token
 check_secure_token() {
@@ -592,13 +588,8 @@ check_secure_token() {
     fi
 }
 
-echo "-------------------------" | tee -a "$log_file"
-echo "👤 Checking which users have admin role + are Secure Token enabled..." | tee -a "$log_file"
-echo "-------------------------" | tee -a "$log_file"
-
 # Get a list of local user accounts (excluding system accounts)
 user_list=$(dscl . list /Users | awk '($1 !~ /^_|daemon|nobody|root|com.apple/)')
-
 
 # Loop through each user
 while IFS= read -r user; do
@@ -626,56 +617,38 @@ while IFS= read -r user; do
     fi
 done <<< "$user_list"
 
-echo "-------------------------" | tee -a "$log_file"
-echo "Evaluation complete." | tee -a "$log_file"
-echo "-------------------------" | tee -a "$log_file"
-echo "🧮 Calculating the best upgrade path..." | tee -a "$log_file"
-echo "🌲 Reticulating splines..." | tee -a "$log_file"
-echo "-------------------------" | tee -a "$log_file"
-
-
-####################################
-#      Step 2 - Calculation        #
-####################################
-
+############################################
+#           Step 2: Evaluation             #
+############################################
 #### Check the error log and based on what we found, recommend an upgrade method with an AppleScript dialog
 
-#########################################################################################################
-#      ERROR GROUPS
-#########################################################################################################
+echo "-----------------------------------------------------------" | tee -a "$log_file"
+echo "🧮 Calculating the best upgrade path..." | tee -a "$log_file"
+echo "🌲 Reticulating splines..." | tee -a "$log_file"
+echo "-----------------------------------------------------------" | tee -a "$log_file"
 
-# There are 5 groups of errors:
 
-# Group A = Not compatible. End of the road. 
 GROUP_A_ERRORS=$(grep -E "Not compatible|not supported|cannot upgrade" "$error_log")
-######### DEBUG NOTE: - below line INCLUDES Oscar, above is TECHNICALLY CORRECT
-# GROUP_A_ERRORS=$(grep -E "Not compatible|not supported|cannot upgrade" "$error_log") 
 
-# Group B = Nuke & pave needed
 GROUP_B_ERRORS=$(grep -E "volumes are missing|cannot upgrade straight to $targetOS|MDM Profile is removable|not enrolled via DEP" "$error_log")
 
-# Group C = Upgrade possible, but can't be achived with MDM commands- must be done manually 
 GROUP_C_ERRORS=$(grep -E "Mac is NOT managed|Bootstrap Token NOT Escrowed|expired" "$error_log")
 
-# Group D = Compatible but can't upgrade _at the moment_
 GROUP_D_ERRORS=$(grep -E "not enough free space on disk|Software updates are restricted|Custom software update catalog URL|macOS updates are deferred" "$error_log")
 
-# Group E = Notable, but won't prevent upgrading
 GROUP_E_ERRORS=$(grep -E "Intel" "$error_log")
 
-#########################################################################################################
+############################################
+#         Step 3: Notification             #
+############################################
 
-# If silent_mode is NOT enabled... 
+# If silent_mode is NOT enabled, then present notifications
 if [[ "$silent_mode" != "on" ]]; then
 
-####################################
-#      Step 3 - Notification        #
-####################################
-
 # Set the message and buttons based on error group and display notification using osascript with timeout
-
 # Timeout for dialogs, in case there is no button clicked. We want the script to complete anyway
-    TIMEOUT_SECONDS=30
+
+TIMEOUT_SECONDS=30
 
     if [ -n "$GROUP_A_ERRORS" ]; then
         MESSAGE="Bad news…\n\nThis Mac is not compatible with the target version of macOS ($targetOS).\n\n$GROUP_A_ERRORS"
@@ -762,18 +735,20 @@ else
     echo "Silent mode is enabled. No dialogs will be displayed."
 fi
 
-echo "========= 🖥️ 🤵 Mac Upgrade Chaperone 🤵 🖥️ =========" | tee -a "$log_file"
+############################################
+#           Step 4: Conclusion             #
+############################################
+
 echo "==================== Conclusion =====================" | tee -a "$log_file"
 
+echo " " | tee -a "$log_file"
 echo "$MESSAGE" | tee -a "$log_file"
+echo " " | tee -a "$log_file"
 
 
-####################################
-#       Wrap Up & Farewell         #
-####################################
-
-echo "-------------------------" | tee -a "$log_file"
-
+echo "-----------------------------------------------------------" | tee -a "$log_file"
 echo "Best of luck on your upgrade journey! Bon voyage! 👋" | tee -a "$log_file"
-echo "Completed: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file"
+#echo "Completed: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$log_file"
+echo "-----------------------------------------------------------" | tee -a "$log_file"
+
 exit 0
