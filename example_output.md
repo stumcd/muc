@@ -1,9 +1,9 @@
 ## Example output
 
-Default location: `/usr/local/muc/`
+By default, logs are written to: `/usr/local/muc/`
 
-#### Error log
-`/usr/local/muc/macupgradechaperone_20250117_170138.error.log`
+### Error log
+
 ```
 ⚠️  This Mac was not enrolled via Automated Device Enrollment
 ⚠️  This Mac is MDM enrolled (User Approved)
@@ -18,89 +18,85 @@ Default location: `/usr/local/muc/`
 ⚠️  macOS Sequoia installer was not found in /Applications
 ```
 
-#### Log
-`/usr/local/muc/macupgradechaperone_20250117_170138.log`
+### General log
 ```
-==========================================================
-========= 🖥️ 🤵 Mac Upgrade Chaperone v0.6🤵 🖥️ ========
-==========================================================
-🎯 Target version: macOS Sequoia
--------------------------
-Log: /usr/local/muc/macupgradechaperone_20250117_170138.log
-Error log: /usr/local/muc/macupgradechaperone_20250117_170138.error.log
--------------------------
-🌐 Checking network connection...
-✅ Network connection detected. �
+============================================================
+======= 🖥️ 🤵 Mac Upgrade Chaperone v0.61 🤵🖥️  ===========
+--------------- Guiding your journey to... ----------------
+------------------ ✨ macOS Sequoia ✨ --------------------
+============================================================
+ℹ️️  General log: /usr/local/muc/macupgradechaperone_20250320_120354.log
+ℹ️  Error log: /usr/local/muc/macupgradechaperone_20250320_120354.error.log
+-----------------------------------------------------------
 ✅ Successfully connected to apple.com on port 443. Port check passed.
--------------------------
------ Guiding your journey to... ✨ macOS Sequoia ✨ -----
--------------------------
-Start: 2025-01-17 17:01:38
-=========================================
-⚙️  Checking MDM profile...
-------------------------------
+-----------------------------------------------------------
+🔎  Checking MDM profile...
+-----------------------------------------------------------
 ✅ MDM Profile: Installed.
-ℹ️  MDM Server: blah.jamfcloud.com
-✅ Push certificate is valid. Expiry date: Aug 23 05:18:30 2040 GMT
-⚠️  This Mac was not enrolled via Automated Device Enrollment
-⚠️  This Mac is MDM enrolled (User Approved)
-------------------------------
-⚙️  Checking MDM Server...
-------------------------------
-✅ MDM Server is reachable.
+ℹ️  MDM Server URL: jamf.jamfcloud.com
+⚠️  MDM Profile is removable.
+✅ APNS certificate is valid. Expiry date: Feb  6 05:22:29 2042 GMT
+✅ This Mac was enrolled via Automated Device Enrollment
+-----------------------------------------------------------
+🔎 Checking MDM Server...
+-----------------------------------------------------------
+✅ MDM Server is reachable. HTTP response code: 301
 ℹ️  URL: blah.jamfcloud.com
-ℹ️  HTTP response: 301
 ❌ Bootstrap Token has NOT been escrowed
 -----
-Checking for any managed configuration preventing macOS upgrades...
 ✅ No macOS restrictions found in com.apple.applicationaccess.
 ✅ No deferral policy for macOS updates detected.
-✅ The system is using Apple's default software update catalog.
-------------------------------
-🧐 Checking APFS volumes...
-------------------------------
-❌ 'Macintosh HD' Volume is missing.
-❌ 'Macintosh HD - Data' Volume is missing.
+✅ The system is using Apple's default software update catalog
+-----------------------------------------------------------
+🔎 Checking APFS volumes...
+-----------------------------------------------------------
+✅ 'Macintosh HD' Volume is present.
+✅ 'Data' Volume is present.
 ✅ 'Preboot' Volume is present.
 ✅ 'Recovery' Volume is present.
 ✅ 'VM' Volume is present.
-❌ Some required volumes are missing.
-✅ There is enough free space on disk to install macOS Sequoia (20 GB required, 641 GB available).
-------------------------------
-🖥 Checking Mac hardware:
-⚠️ Architecture: Intel
--- Serial: C04JK5111YZL
--- Model: Mac mini
--- Model Identifier: Macmini6,1
--- Processor Info: Dual-Core Intel Core i5
-❌ Macmini6,1 is not compatible with macOS Sequoia.
--------------------------
-🖥  Checking existing macOS installation
-❌ macOS Big Sur (and earlier versions) cannot upgrade to macOS Sequoia.
-ℹ️  Current version: 10.15.7
+✅ All required volumes are present.
+✅ There is enough free space on disk to install macOS Sequoia (20 GB required, 89 GB available).
+-----------------------------------------------------------
+🔎 Checking hardware...
+-----------------------------------------------------------
+✅ Battery cycle count is acceptable. Battery cycles: 241
+✅ Battery condition: Normal
+-- Architecture: Apple silicon
+-- Serial: QW1CY3V9XY
+-- Model: MacBook Pro
+-- Model Identifier: MacBookPro18,3
+-- Processor Info: Apple M1 Pro
+✅ This device (MacBookPro18,3) is compatible with macOS Sequoia
+-----------------------------------------------------------
+🔎  Checking existing macOS installation
+-----------------------------------------------------------
+✅ 15.3.2 can upgrade to macOS Sequoia
+ℹ️  Current version: 15.3.2
 ⚠️  macOS Sequoia installer was not found in /Applications
--------------------------
-🙋 Checking which users have admin role + are Secure Token enabled...
--------------------------
-User: localadmin
+-----------------------------------------------------------
+🔎 Checking existing user accounts...
+-----------------------------------------------------------
+User: joanna.smith
       Admin
       Secure Token enabled
-      Home Directory: /Users/localadmin
+      Home Directory: /Users/joanna.smith
       UID: 502
-User: oscar
-      Admin
-      Secure Token enabled
-      Home Directory: /Users/oscar
-      UID: 503
--------------------------
-Evaluation complete.
--------------------------
+-----------------------------------------------------------
 🧮 Calculating the best upgrade path...
 🌲 Reticulating splines...
--------------------------
-========= 🖥️ 🤵 Mac Upgrade Chaperone 🖥️ =========
+-----------------------------------------------------------
 ==================== Conclusion =====================
-Bad news…\n\nThis Mac is not compatible with the target version of macOS (macOS Sequoia).\n\n❌ macOS Big Sur (and earlier versions) cannot upgrade to macOS Sequoia.
--------------------------
+ 
+Bad news...
+
+⚠️  MDM Profile is removable.
+
+You will need to erase and re-install macOS, using either Internet Recovery or Apple Configurator 2. (aka time to nuke and pave).
+ 
+-----------------------------------------------------------
+Best of luck on your upgrade journey! Bon voyage! 👋
+-----------------------------------------------------------
+
 ```
 
