@@ -15,7 +15,7 @@
 log_dir="/usr/local/muc"
 
 # Find the most recent log file that matches the pattern
-conclusion_log=$(ls -1t "${LOG_DIR}/macupgradechaperone.conclusion_"*.log 2>/dev/null | head -n 1)
+conclusion_log=$(ls -1t "${log_dir}/macupgradechaperone_"*.conclusion.log 2>/dev/null | head -n 1)
 
 # Check if a file was found
 if [[ -f "$conclusion_log" ]]; then

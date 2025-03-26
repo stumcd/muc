@@ -467,7 +467,7 @@ echo "-----------------------------------------------------------" | tee -a "$ge
 
 sonoma_compatible_models=(
   "MacBookAir8,1"  # MacBook Air (Retina, 13-inch, 2018)
-  "MacBookAir9,1"  # MacBook Air (Retina, 13-inch, 2019)
+  "MacBookAir9,1"  # MacBook Air (Retina, 13-inch, 2020)
   "MacBookAir10,1" # MacBook Air (M1, 2020)
   "MacBookAir14,2" # MacBook Air (13-inch, M2, 2022)
   "MacBookAir14,15" # MacBook Air (15-inch, M2, 2023)
@@ -500,6 +500,7 @@ sonoma_compatible_models=(
 )
 
 sequoia_compatible_models=(
+  "MacBookAir9,1"   # MacBook Air (Retina, 13-inch, 2020)
   "MacBookAir10,1"  # MacBook Air (M1, 2020)
   "MacBookAir14,2"  # MacBook Air (13-inch, M2, 2022)
   "MacBookAir14,15" # MacBook Air (15-inch, M2, 2023)

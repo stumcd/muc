@@ -7,12 +7,21 @@ Meet 'Mac Upgrade Chaperone' 🖥️🤵‍♂️
 This script will guide you to the best (available) macOS upgrade method for a given Mac. 
 Broadly, the upgrade methods range from 'best case scenario' (send an MDM command), through 'not so bad' (manual intervention needed e.g. not enough free space), to 'erase and re-install' (nuke & pave via EACS, MDM command, Recovery, depending on options), and the true dead-end scenario: this Mac *cannot* run the specified macOS version (e.g. incompatible). 
 
-### Features: 
-* Target a macOS version to check and report on which requirements are not met  
+### Choose your target version of macOS and MUC will: 
+* Check and report on which requirements are not met  
 * Determine the best method available, explain why, provide links to relevant Apple documentation
-* MUC conclusion is displayed on-screen using AppleScript, plus two log files are written to disk (general log + error log)
-	* Alternative: MUC now has a 'silent mode' that doesn't display any notifications on-screen and *only* logs the results (Thanks to [Daniel MacLaughlin](https://github.com/daniel-maclaughlin) for the idea!) 
-* Jamf Pro extension attribute for reporting the MUC conclusion into Jamf Pro inventory, then create Smart Groups e.g. '✅ Upgrade Ready', '⚠️ Needs Attention' and '❌ Can't Upgrade' (Thanks to [Ant Darlow](https://github.com/cantscript) for the idea of scoping upgrade policies to these groups!)
+* Write two log files are written to disk (general log + error log)
+* Display this guidance on-screen using AppleScript
+	* Alternative: 'silent mode' doesn't display any notifications on-screen and *only* logs the results
+* Jamf Pro extension attribute for reporting the MUC conclusion into Jamf Pro inventory, then create Smart Groups e.g. '✅ Ready to upgrade, '⚠️ Intervention needed' and '❌ Cannot upgrade'
+
+## FAQ:
+1. Will this script download and install macOS? **No.**  
+------- Instead, check out s.u.p.e.r, nudge or mist  
+Will this script *determine what's possible and let you know?* **Yes.**  
+------- This script provides advice only. 
+3. Is this still a work-in-progress? *Yes!*  
+------- If you have a suggestion on checks that should be included or false positives you notice, please let me know- submit a issue!
 
 You can view [example output of both logs here](https://github.com/stumcd/muc/blob/0466ddd52df513c698b14c5d8f7baf7c797e4d4e/example_output.md)
 
@@ -26,14 +35,14 @@ You can view [example output of both logs here](https://github.com/stumcd/muc/bl
 * ✅ Is there an MDM profile?  
 * ✅ Is the MDM profile valid (ie not expired)?  
 * ✅ Is the MDM profile non-removable?  
-		* Has the associated push cert expired? (not reliable currently)  
+* ✅ Is the Push Certificate valid?
 * ✅ Was the device enrolled via Automated Device Enrollment (aka DEP)?  
 * ✅ Was the device enrolled using User-Approved?  
 * ✅ Can we connect to the MDM server?  
-		* ✅ Has a Bootstrap Token been escrowed to the MDM server?  
-MDM Restrictions (still a work in progress)
-* ~~Are there any MDM-managed upgrade restrictions in-place?~~ 
-* ~~Is there a deferral in place for macOS upgrades? If so, how many days?~~  
+* ✅ Has a Bootstrap Token been escrowed to the MDM server?  
+		
+MDM Deferrals/Restrictions
+* Is there a deferral in place for macOS upgrades? If so, how many days?
 * ✅ Is the Software Update Catalog URL set to Apple's default?  
  
 #### Disk volumes
@@ -47,16 +56,6 @@ MDM Restrictions (still a work in progress)
 #### macOS Installers
 ✅ * Is there an Installer on disk already? "/Applications/Install $targetOS.app"
 ✅ * Is the startosinstall binary available the installer too? 
-
-## FAQ:
-1. Will this script download and install macOS? **No.**  
-------- Instead, check out s.u.p.e.r, nudge or mist  
-Will this script *determine what's possible and let you know?* **Yes.**  
-------- This script provides advice only. 
-3. Is this still a work-in-progress? *Yes!*  
-------- If you have a suggestion on checks that should be included or false positives you notice, please let me know- submit a issue!
-
-
 
 
 ## How to use
