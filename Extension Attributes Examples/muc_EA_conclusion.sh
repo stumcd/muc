@@ -1,5 +1,4 @@
 #!/bin/bash
-
 # -----------------------------------------------------
 # Name: muc_EA_conclusion.sh
 # Description: Jamf Pro Extension Attribute to report errors discovered by MacUpgradeChaperone into device inventory
@@ -7,9 +6,8 @@
 # Created: 14-09-24
 # -----------------------------------------------------
 # Version: 0.6
-# Modified: 24-03-25
+# Modified: 03-04-25
 # -----------------------------------------------------
-
 
 # Directory containing the log files
 log_dir="/usr/local/muc"

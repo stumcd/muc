@@ -1,5 +1,4 @@
 #!/bin/bash
-
 # -----------------------------------------------------
 # Name: muc_EA_issue.sh
 # Description: Jamf Pro Extension Attribute to report issues discovered by MacUpgradeChaperone into device inventory

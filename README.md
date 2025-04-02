@@ -15,7 +15,7 @@ Broadly, the upgrade methods range from 'best case scenario' (send an MDM comman
 	* Alternative: 'silent mode' doesn't display any notifications on-screen and *only* logs the results
 * Jamf Pro extension attribute for reporting the MUC conclusion into Jamf Pro inventory, then create Smart Groups e.g. '✅ Ready to upgrade, '⚠️ Intervention needed' and '❌ Cannot upgrade'
 
-## FAQ:
+## FAQ
 1. Will this script download and install macOS? **No.**  
 ------- Instead, check out s.u.p.e.r, nudge or mist  
 Will this script *determine what's possible and let you know?* **Yes.**  
@@ -54,18 +54,20 @@ MDM Deferrals/Restrictions
 * ✅ Can we upgrade directly from the current installed macOS version?
  
 #### macOS Installers
-✅ * Is there an Installer on disk already? "/Applications/Install $targetOS.app"
-✅ * Is the startosinstall binary available the installer too? 
+* ✅ Is there a macOS installer applicaton on disk? "/Applications/Install $targetOS.app"
+* ✅ Is the startosinstall binary available the installer too? 
 
 
 ## How to use
 ### Jamf Pro
 1. Upload script
-2. Create policy
-3. Scope
-4. Upload extension attribute (optional) 
-5. Test
+2. Create policy (self service, ongoing, include an inventory update)
+3. Upload extension attribute (optional) 
+4. Scope to your test device
+5. Execute the script
+6. Marvel at resulting files 
+7. Admire the info now available for scoping in Jamf Pro (if you used the extension attributes)
 
 ### Manually
 1. Download script
-2. Execute `sudo sh /path/to/macupgradechaperone-0.6.sh`
+2. Execute `sudo sh /path/to/muc.sh`
