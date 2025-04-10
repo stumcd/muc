@@ -2,8 +2,14 @@
 
 By default, logs are written to: `/usr/local/muc/`
 
-### Error log
+### Legend for log files
+* ❌ = issue that prevents _upgrading__ macOS. Erase and reinstalling macOS required. 
+* ⚠️ = issue that isn't a roadblock, but should be noted. 
+* 🪦 = the Mac is not compatible with the target macOS version. End of the road. 
 
+
+### Issue log 
+When MUC encounters an issue that would prevent upgrading macOS, it logs to this file. 
 ```
 ⚠️  This Mac was not enrolled via Automated Device Enrollment
 ⚠️  This Mac is MDM enrolled (User Approved)

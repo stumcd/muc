@@ -3,23 +3,26 @@
 # -----------------------------------------------------
 # Script Name: MacUpgradeChaperone.sh
 # Description: This script will guide you to the best upgrade method for the host Mac
+# Source: github.com/stumcd/muc  
 # Author: Stu McDonald
 # Created: 14-09-24
 # -----------------------------------------------------
 # Version: 0.62
 # Modified: 24-03-25
+# -----------------------------------------------------
 
-# All care and no responsibility taken. No warranty implied, works as-is. 
+# DISCLAIMER:
+# This script is shared with no guarantees— it works for me, but your mileage (kilometerage?) may vary. 
+# No guarantees are made about its suitability, reliability, or impact on your environment. 
+# You are solely responsible for testing, validating, and using this script. 
 
-## Future plans:
-## - If macOS re-install needed, download installer from Apple using mist-cli 
-## - If not already installed, install mist-cli from GitHub
-## - Report on MDM profile installation date
-## - One day: add some wild 90s ASCII art here, like you'd see on a .NFO
-
-## Notes: 
-## Currently the checks for software update restrictions *are not valid*. 
-## With a 90 day deferral in place, these commands do not respond as expected. 
+# -----------------------------------------------------
+# Future plans:
+# - If macOS re-install needed, download installer from Apple using mist-cli 
+# - If not already installed, install mist-cli from GitHub
+# - Report on MDM profile installation date
+# - One day: add some wild 90s ASCII art here, like you'd see on a .NFO
+# -----------------------------------------------------
 
 #  -----------------------------------------------------
 #                Explainer                     
