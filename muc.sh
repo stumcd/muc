@@ -113,7 +113,7 @@ fi
 if [ ! -d "$log_dir" ]; then
   echo "The log directory '$log_dir' does not exist. Creating it now..."
   sudo mkdir -p "$log_dir"
-  sudo chown $(whoami) "$log_dir"  
+  sudo chown "${SUDO_USER:-$(whoami)}" "$log_dir"
 fi
 
 if [[ ! -w "$log_dir" ]]; then
@@ -190,7 +190,10 @@ network_status() {
         done
     }
 
-    while true; do
+    local max_retries=5
+    local retry_count=0
+
+    while [[ $retry_count -lt $max_retries ]]; do
         active_interface=$(get_active_interface)
 
         if [[ -n "$active_interface" ]]; then
@@ -220,7 +223,14 @@ EOF
         fi
 
         # If we got here, something failed
-        echo "❌ No active network connection found." | tee -a "$general_log" | tee -a "$issue_log"
+        ((retry_count++))
+        echo "❌ No active network connection found. (Attempt $retry_count of $max_retries)" | tee -a "$general_log" | tee -a "$issue_log"
+
+        if [[ $retry_count -ge $max_retries ]]; then
+            echo "❌ Maximum retry attempts reached. Exiting." | tee -a "$general_log" | tee -a "$issue_log"
+            exit 1
+        fi
+
         response=$(osascript <<EOF
 display dialog "No network connection detected. Please connect to a network and try again." buttons {"Quit", "Retry"} default button "Retry" with icon stop
 EOF
@@ -605,11 +615,11 @@ else
   echo "❌ macOS Big Sur (and earlier versions) cannot upgrade to $targetOS. Current version: $macos_version" | tee -a "$general_log" | tee -a "$issue_log"
 fi
 
-#### Check: macOS installer is already on disk 
-
-echo "- Checking for $targetOS installer on disk: '$installer_path'." | tee -a "$general_log"
+#### Check: macOS installer is already on disk
 
 installer_path="/Applications/Install $targetOS.app"
+
+echo "- Checking for $targetOS installer on disk: '$installer_path'." | tee -a "$general_log"
 
 startosinstall_path="$installer_path/Contents/Resources/startosinstall"
 
@@ -765,7 +775,7 @@ EOF
                 display dialog "$MESSAGE" buttons {"Show error log", "Quit"} default button "$DEFAULT_ACTION" with icon stop giving up after $TIMEOUT_SECONDS
                 set userChoice to button returned of result
                 if userChoice is "Show error log" then
-                    do shell script "open /path/to/error/log"
+                    do shell script "open $issue_log"
                 end if
             on error
                 display dialog "Input timeout. No one clicked on a button... Defaulting to \"$DEFAULT_ACTION\"." buttons {"OK"} default button "OK"
