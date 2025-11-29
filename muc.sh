@@ -52,18 +52,39 @@ offline_mode=""
 while [[ "$#" -gt 0 ]]; do
     case "$1" in
         --log_dir)
+            if [[ -z "$2" || "$2" == --* ]]; then
+                echo "❌ Error: --log_dir requires a valid directory path"
+                exit 1
+            fi
+            # Basic path validation - prevent directory traversal
+            if [[ "$2" =~ \.\. ]]; then
+                echo "❌ Error: --log_dir path cannot contain '..'"
+                exit 1
+            fi
             log_dir="$2"
             shift 2
             ;;
         --targetOS)
+            if [[ -z "$2" || "$2" == --* ]]; then
+                echo "❌ Error: --targetOS requires a valid macOS version name"
+                exit 1
+            fi
             targetOS="$2"
             shift 2
             ;;
         --silent_mode)
+            if [[ "$2" != "on" && "$2" != "off" ]]; then
+                echo "❌ Error: --silent_mode must be 'on' or 'off'"
+                exit 1
+            fi
             silent_mode="$2"
             shift 2
             ;;
         --offline_mode)
+            if [[ "$2" != "on" && "$2" != "off" ]]; then
+                echo "❌ Error: --offline_mode must be 'on' or 'off'"
+                exit 1
+            fi
             offline_mode="$2"
             shift 2
             ;;
@@ -129,21 +150,20 @@ general_log="$log_dir/macupgradechaperone_${timestamp}.log"
 issue_log="$log_dir/macupgradechaperone_${timestamp}.issue.log"
 conclusion_log="$log_dir/macupgradechaperone_${timestamp}.conclusion.log"
 
+#### Target OS: if not set, default to latest major version
+if [[ -z $targetOS ]]; then
+    targetOS="Sequoia"
+fi
+
 # Normalise targetOS: prepend "macOS " if not already present
 if [[ -n "$targetOS" ]]; then
-    # Capitalise first letter (e.g. sierra → Sierra)
-    targetOS="$(tr '[:upper:]' '[:lower:]' <<< "${targetOS:0:1}")${targetOS:1}"
+    # Capitalise first letter (e.g. sierra → Sierra, sequoia → Sequoia)
     targetOS="$(tr '[:lower:]' '[:upper:]' <<< "${targetOS:0:1}")${targetOS:1}"
 
     # Prepend "macOS " if not already included (case-insensitive check)
     if [[ ! "$targetOS" =~ ^[Mm][Aa][Cc][Oo][Ss]\  ]]; then
         targetOS="macOS $targetOS"
     fi
-fi
-
-#### Target OS: if not set, default to latest major version
-if [[ -z $targetOS ]]; then
-    targetOS="Sequoia"
 fi
 
 echo "-----------------------------------------------------------" | tee -a "$general_log"
@@ -162,11 +182,18 @@ if [ "$offline_mode" = "on" ]; then
 fi
 
 echo "==========================================================" | tee -a "$general_log"
-echo "======== 🖥️ 🤵 Mac Upgrade Chaperone v0.61 🤵🖥️  ===========" | tee -a "$general_log"
+echo "======== 🖥️ 🤵 Mac Upgrade Chaperone v0.62 🤵🖥️  ===========" | tee -a "$general_log"
 echo "--------------- Guiding your journey to... ----------------" | tee -a "$general_log"
 echo "------------------ ✨ $targetOS ✨ --------------------" | tee -a "$general_log"
 echo "===========================================================" | tee -a "$general_log"
 
+# Validate that the target OS is supported
+supported_versions=("macOS Sonoma" "macOS Sequoia")
+if [[ ! " ${supported_versions[@]} " =~ " ${targetOS} " ]]; then
+    echo "❌ Error: '$targetOS' is not currently supported by Mac Upgrade Chaperone." | tee -a "$general_log" | tee -a "$issue_log"
+    echo "   Supported versions: ${supported_versions[*]}" | tee -a "$general_log"
+    exit 1
+fi
 
 #### Insert here: if currentOS is already targetOS... prompt with 'are you sure? continue or quit'
 
@@ -295,19 +322,15 @@ fi
 #    fi
 #fi
 
-if [[ "$offline_mode" = "on" ]]; then
-    echo "⚠️  Offline mode: skipping check for Device Enrollment Configuration" | tee -a "$general_log"
+# Check if MDM profile is removable
+mdm_profile_removeable=$(profiles -e | grep "IsMDMUnremovable" | awk '{print $3}' | tr -d ';')
+
+if [[ ${mdm_profile_removeable} = '1' ]]; then
+    echo "✅ MDM Profile is NOT removable" | tee -a "$general_log"
+elif [[ ${mdm_profile_removeable} = '0' ]]; then
+    echo "⚠️  MDM Profile is removable." | tee -a "$general_log" | tee -a "$issue_log"
 else
-    # Check if MDM profile is removable
-    mdm_profile_removeable=$(profiles -e | grep "IsMDMUnremovable" | awk '{print $3}' | tr -d ';')
-    
-    if [[ ${mdm_profile_removeable} = '1' ]]; then
-        echo "✅ MDM Profile is NOT removable" | tee -a "$general_log"
-    elif [[ ${mdm_profile_removeable} = '0' ]]; then
-        echo "⚠️  MDM Profile is removable." | tee -a "$general_log" | tee -a "$issue_log"
-    else
-        echo "❓ Unable to determine MDM Profile removability." | tee -a "$general_log" | tee -a "$issue_log"
-    fi
+    echo "❓ Unable to determine MDM Profile removability." | tee -a "$general_log" | tee -a "$issue_log"
 fi
 	
 # Check: push certificate expiry
@@ -340,20 +363,24 @@ else
 fi
 
 # Check: MDM server
-echo "-----------------------------------------------------------" | tee -a "$general_log"
-echo "🔎 Checking MDM Server..." | tee -a "$general_log" 
-echo "-----------------------------------------------------------" | tee -a "$general_log"
-
-mdmServerStatus=$(curl -s -o /dev/null -w "%{http_code}" "$mdmUrl/healthCheck.html")
-
-if [ "$mdmServerStatus" -eq 200 ] || [ "$mdmServerStatus" -eq 301 ]; then
-    echo "✅ MDM Server is reachable. HTTP response code: $mdmServerStatus" | tee -a "$general_log"
-    echo "ℹ️  URL: $mdmUrl" | tee -a "$general_log"
-
+if [[ "$offline_mode" = "on" ]]; then
+    echo "⚠️  Offline mode: skipping MDM server connectivity check" | tee -a "$general_log"
 else
-    echo "❌ Failed to reach $mdmUrl." | tee -a "$general_log" | tee -a "$issue_log"
-    echo "-- URL: $mdmUrl" | tee -a "$general_log"
-    echo "-- HTTP response: $mdmServerStatus" | tee -a "$general_log"    
+    echo "-----------------------------------------------------------" | tee -a "$general_log"
+    echo "🔎 Checking MDM Server..." | tee -a "$general_log"
+    echo "-----------------------------------------------------------" | tee -a "$general_log"
+
+    mdmServerStatus=$(curl -s -o /dev/null -w "%{http_code}" "$mdmUrl/healthCheck.html")
+
+    if [ "$mdmServerStatus" -eq 200 ] || [ "$mdmServerStatus" -eq 301 ]; then
+        echo "✅ MDM Server is reachable. HTTP response code: $mdmServerStatus" | tee -a "$general_log"
+        echo "ℹ️  URL: $mdmUrl" | tee -a "$general_log"
+
+    else
+        echo "❌ Failed to reach $mdmUrl." | tee -a "$general_log" | tee -a "$issue_log"
+        echo "-- URL: $mdmUrl" | tee -a "$general_log"
+        echo "-- HTTP response: $mdmServerStatus" | tee -a "$general_log"
+    fi
 fi
 
 # Check if Bootstrap Token has been escrowed
@@ -517,29 +544,49 @@ sequoia_compatible_models=(
   "MacBookAir10,1"  # MacBook Air (M1, 2020)
   "MacBookAir14,2"  # MacBook Air (13-inch, M2, 2022)
   "MacBookAir14,15" # MacBook Air (15-inch, M2, 2023)
-  "MacBookAir15,1"  # MacBook Air (13-inch, M3, 2024)
-  "MacBookAir15,2"  # MacBook Air (15-inch, M3, 2024)
+  "Mac14,2"         # MacBook Air (13-inch, M2, 2022)
+  "Mac14,15"        # MacBook Air (15-inch, M2, 2023)
+  "Mac15,12"        # MacBook Air (13-inch, M3, 2024)
+  "Mac15,13"        # MacBook Air (15-inch, M3, 2024)
   "MacBookPro17,1"  # MacBook Pro (13-inch, M1, 2020)
   "MacBookPro18,1"  # MacBook Pro (16-inch, M1 Pro/Max, 2021)
+  "MacBookPro18,2"  # MacBook Pro (16-inch, M1 Max, 2021)
   "MacBookPro18,3"  # MacBook Pro (14-inch, M1 Pro/Max, 2021)
-  "Mac15,3"   # MacBook Pro (14-inch, M3, 2023)
-  "Mac15,6"   # MacBook Pro (16-inch, M3, 2023)
-  "Mac15,11"  # MacBook Pro (14-inch, M3 Pro, 2024)
-  "Mac15,9"   # MacBook Pro (16-inch, M3 Pro, 2024)  
-  "MacBookPro15,6"  # MacBook Pro (14-inch, M2 Pro, 2023)
-  "MacBookPro15,7"  # MacBook Pro (16-inch, M2 Pro, 2023)
-  "MacBookPro15,8"  # MacBook Pro (14-inch, M2 Max, 2023)
-  "MacBookPro15,10" # MacBook Pro (16-inch, M2 Max, 2023)
+  "MacBookPro18,4"  # MacBook Pro (14-inch, M1 Max, 2021)
+  "Mac14,5"         # MacBook Pro (14-inch, M2 Pro, 2023)
+  "Mac14,6"         # MacBook Pro (16-inch, M2 Pro, 2023)
+  "Mac14,9"         # MacBook Pro (14-inch, M2 Max, 2023)
+  "Mac14,10"        # MacBook Pro (16-inch, M2 Max, 2023)
+  "Mac15,3"         # MacBook Pro (14-inch, M3, 2023)
+  "Mac15,6"         # MacBook Pro (16-inch, M3, 2023)
+  "Mac15,7"         # MacBook Pro (14-inch, M3 Pro, 2023)
+  "Mac15,8"         # MacBook Pro (14-inch, M3 Max, 2023)
+  "Mac15,9"         # MacBook Pro (16-inch, M3 Pro, 2023)
+  "Mac15,10"        # MacBook Pro (16-inch, M3 Max, 2023)
+  "Mac15,11"        # MacBook Pro (14-inch, M3 Pro, 2024)
+  "Mac16,1"         # MacBook Pro (16-inch, M4 Pro, 2024)
+  "Mac16,2"         # MacBook Pro (16-inch, M4 Max, 2024)
+  "Mac16,5"         # MacBook Pro (14-inch, M4, 2024)
+  "Mac16,6"         # MacBook Pro (14-inch, M4 Pro, 2024)
+  "Mac16,7"         # MacBook Pro (14-inch, M4 Max, 2024)
+  "Mac16,10"        # MacBook Pro (16-inch, M4 Pro, 2024)
   "Macmini9,1"      # Mac mini (M1, 2020)
-  "Macmini10,1"     # Mac mini (M2, 2023)
-  "Macmini10,2"     # Mac mini (M3, 2024)
+  "Mac14,3"         # Mac mini (M2, 2023)
+  "Mac14,12"        # Mac mini (M2 Pro, 2023)
+  "Mac16,11"        # Mac mini (M4, 2024)
+  "Mac16,12"        # Mac mini (M4 Pro, 2024)
   "iMac21,1"        # iMac (24-inch, M1, 2021)
-  "iMac21,2"        # iMac (24-inch, M3, 2024)
-  "MacPro8,1"       # Mac Pro (M2 Ultra, 2023)
+  "iMac21,2"        # iMac (24-inch, M1, 2021)
+  "Mac15,4"         # iMac (24-inch, M3, 2023)
+  "Mac15,5"         # iMac (24-inch, M3, 2023)
+  "Mac16,3"         # iMac (24-inch, M4, 2024)
+  "Mac16,4"         # iMac (24-inch, M4, 2024)
+  "MacPro7,1"       # Mac Pro (2019)
+  "Mac14,8"         # Mac Pro (M2 Ultra, 2023)
+  "Mac13,1"         # Mac Studio (M1 Max, 2022)
+  "Mac13,2"         # Mac Studio (M1 Ultra, 2022)
   "Mac14,13"        # Mac Studio (M2 Max, 2023)
   "Mac14,14"        # Mac Studio (M2 Ultra, 2023)
-  "Mac14,15"        # Mac Studio (M3 Max, 2024)
-  "Mac14,16"        # Mac Studio (M3 Ultra, 2024)
 )
 
 #### Retrieve hardware info
@@ -568,30 +615,39 @@ else
     exit 1
 fi
 
-#### Check: Battery health
+#### Check: Battery health (skip for desktop Macs)
 
-echo "-----------------------------------------------------------" | tee -a "$general_log"
-echo "⚡️ Checking battery..." | tee -a "$general_log"
-echo "-----------------------------------------------------------" | tee -a "$general_log"
+# Determine if this Mac has a battery (laptops only)
+has_battery=$(system_profiler SPPowerDataType 2>/dev/null | grep -c "Battery Information")
 
-battery_info=$(system_profiler SPPowerDataType)
-battery_cycle_count=$(system_profiler SPPowerDataType | awk '/Cycle Count:/ {print $3}')
-battery_condition=$(echo "$battery_info" | awk -F ': ' '/Condition/ {print $2}')
+if [ "$has_battery" -gt 0 ]; then
+    echo "-----------------------------------------------------------" | tee -a "$general_log"
+    echo "⚡️ Checking battery..." | tee -a "$general_log"
+    echo "-----------------------------------------------------------" | tee -a "$general_log"
 
-if [ "$battery_cycle_count" -lt 1000 ]; then
-    echo "✅ Battery cycle count is acceptable. Battery cycles: $battery_cycle_count" | tee -a "$general_log"
+    battery_info=$(system_profiler SPPowerDataType)
+    battery_cycle_count=$(system_profiler SPPowerDataType | awk '/Cycle Count:/ {print $3}')
+    battery_condition=$(echo "$battery_info" | awk -F ': ' '/Condition/ {print $2}')
+
+    if [ -n "$battery_cycle_count" ] && [ "$battery_cycle_count" -lt 1000 ]; then
+        echo "✅ Battery cycle count is acceptable. Battery cycles: $battery_cycle_count" | tee -a "$general_log"
+    elif [ -n "$battery_cycle_count" ]; then
+        echo "❌ Battery cycle count is too high: $battery_cycle_count" | tee -a "$general_log" | tee -a "$issue_log"
+    fi
+
+    # Check: Battery condition
+    if [[ -n "$battery_condition" ]]; then
+      echo "✅ Battery condition: $battery_condition" | tee -a "$general_log"
+      if [[ "$battery_condition" != "Normal" ]]; then
+        echo "⚠️ Battery condition is not optimal: $battery_condition. Consider servicing or replacing this Mac." | tee -a "$general_log" | tee -a "$issue_log"
+      fi
+    else
+      echo "❌ Failed to retrieve battery condition." | tee -a "$general_log" | tee -a "$issue_log"
+    fi
 else
-    echo "❌ Battery cycle count is too high: $battery_cycle_count" | tee -a "$general_log" "$issue_log"
-fi
-
-# Check: Battery condition
-if [[ -n "$battery_condition" ]]; then
-  echo "✅ Battery condition: $battery_condition" | tee -a "$general_log"
-  if [[ "$battery_condition" != "Normal" ]]; then
-    echo "⚠️ Battery condition is not optimal: $battery_condition. Consider servicing or replacing this Mac." | tee -a "$general_log" | tee -a "$issue_log"
-  fi
-else
-  echo "❌ Failed to retrieve battery condition." | tee -a "$general_log" | tee -a "$issue_log"
+    echo "-----------------------------------------------------------" | tee -a "$general_log"
+    echo "⚡️ Desktop Mac detected - skipping battery check" | tee -a "$general_log"
+    echo "-----------------------------------------------------------" | tee -a "$general_log"
 fi
 
 # Check if the hardware model is in the list of compatible models
@@ -693,15 +749,15 @@ echo "-----------------------------------------------------------" | tee -a "$ge
 
 #### Check the issue log and based on what we found, recommend an upgrade method with an AppleScript dialog
 
-GROUP_A_ISSUES=$(grep -E "Not compatible|not supported|cannot upgrade" "$issue_log")
+GROUP_A_ISSUES=$(grep -E "not compatible|not supported|cannot upgrade" "$issue_log" 2>/dev/null)
 
-GROUP_B_ISSUES=$(grep -E "volumes are missing|cannot upgrade straight to $targetOS|not enrolled via DEP" "$issue_log")
+GROUP_B_ISSUES=$(grep -E "volumes are missing|not enrolled via DEP" "$issue_log" 2>/dev/null)
 
-GROUP_C_ISSUES=$(grep -E "Mac is NOT managed|Bootstrap Token NOT Escrowed|expired" "$issue_log")
+GROUP_C_ISSUES=$(grep -E "Mac is NOT managed|Bootstrap Token has NOT been escrowed|expired|Push certificate has expired" "$issue_log" 2>/dev/null)
 
-GROUP_D_ISSUES=$(grep -E "not enough free space on disk|Software updates are restricted|Custom software update catalog URL|macOS updates are deferred" "$issue_log")
+GROUP_D_ISSUES=$(grep -E "not enough free space|Software updates are restricted|Custom software update catalog|deferred|deferral" "$issue_log" 2>/dev/null)
 
-GROUP_E_ISSUES=$(grep -E "Intel|MDM Profile is removable" "$issue_log")
+GROUP_E_ISSUES=$(grep -E "Intel|MDM Profile is removable" "$issue_log" 2>/dev/null)
 
 ############################################
 #         Step 3: Notification             #
@@ -817,7 +873,7 @@ fi
 #           Step 4: Conclusion             #
 ############################################
 
-echo "====== 🖥️ 🤵 Mac Upgrade Chaperone v0.61 🤵🖥️  ==========" | tee -a "$general_log" | tee -a "$conclusion_log"
+echo "====== 🖥️ 🤵 Mac Upgrade Chaperone v0.62 🤵🖥️  ==========" | tee -a "$general_log" | tee -a "$conclusion_log"
 echo " " | tee -a "$general_log" | tee -a "$conclusion_log"
 
 echo "Completed: $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "$general_log"
